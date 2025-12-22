@@ -4,29 +4,29 @@ export type Severity = 'normal' | 'warning' | 'critical';
 
 /** CPU使用率から重要度を計算 */
 export function getCpuSeverity(usagePercent: number): Severity {
-  if (usagePercent >= 90) return 'critical';
-  if (usagePercent >= 70) return 'warning';
+  if (usagePercent >= 90) {return 'critical';}
+  if (usagePercent >= 70) {return 'warning';}
   return 'normal';
 }
 
 /** メモリ使用率から重要度を計算 */
 export function getMemorySeverity(usagePercent: number): Severity {
-  if (usagePercent >= 90) return 'critical';
-  if (usagePercent >= 75) return 'warning';
+  if (usagePercent >= 90) {return 'critical';}
+  if (usagePercent >= 75) {return 'warning';}
   return 'normal';
 }
 
 /** GPU使用率から重要度を計算 */
 export function getGpuSeverity(usagePercent: number): Severity {
-  if (usagePercent >= 95) return 'critical';
-  if (usagePercent >= 80) return 'warning';
+  if (usagePercent >= 95) {return 'critical';}
+  if (usagePercent >= 80) {return 'warning';}
   return 'normal';
 }
 
 /** エンコーダー使用率から重要度を計算 */
 export function getEncoderSeverity(usagePercent: number): Severity {
-  if (usagePercent >= 90) return 'critical';
-  if (usagePercent >= 70) return 'warning';
+  if (usagePercent >= 90) {return 'critical';}
+  if (usagePercent >= 70) {return 'warning';}
   return 'normal';
 }
 

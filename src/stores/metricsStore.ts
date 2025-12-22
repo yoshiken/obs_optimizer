@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import type { SystemMetrics, ObsProcessMetrics } from '../types';
+import type { ObsProcessMetrics, SystemMetrics } from '../types';
 
 // ========================================
 // ヒストリー用の型定義
@@ -127,7 +127,7 @@ export const useMetricsStore = create<MetricsState>((set, get) => ({
     try {
       const obsProcessMetrics = await invoke<ObsProcessMetrics>('get_process_metrics');
       set({ obsProcessMetrics });
-    } catch (e) {
+    } catch (_e) {
       // OBSプロセスメトリクスの取得失敗はエラーとして扱わない（OBSが起動していない可能性）
       set({ obsProcessMetrics: null });
     }
@@ -137,8 +137,8 @@ export const useMetricsStore = create<MetricsState>((set, get) => ({
     const { fetchMetrics, fetchObsProcessMetrics } = get();
 
     // 初回取得
-    fetchMetrics();
-    fetchObsProcessMetrics();
+    void fetchMetrics();
+    void fetchObsProcessMetrics();
 
     // 定期取得
     const metricsIntervalId = setInterval(fetchMetrics, intervalMs);

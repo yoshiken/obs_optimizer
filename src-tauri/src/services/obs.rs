@@ -15,8 +15,8 @@ use crate::obs::{
 
 /// OBSサービスのインスタンス
 ///
-/// グローバルなObsClientへのアクセスを提供する薄いラッパー。
-/// ObsClient自体が Arc<RwLock<>> でスレッドセーフなため、
+/// `グローバルなObsClientへのアクセスを提供する薄いラッパー`。
+/// `ObsClient自体が` Arc<`RwLock`<>> でスレッドセーフなため、
 /// このサービスは単にアクセスポイントとして機能する。
 #[derive(Clone)]
 pub struct ObsService {
@@ -30,30 +30,30 @@ impl Default for ObsService {
 }
 
 impl ObsService {
-    /// 新しいObsServiceインスタンスを作成
+    /// `新しいObsServiceインスタンスを作成`
     ///
-    /// 内部でグローバルなObsClientを取得する
+    /// `内部でグローバルなObsClientを取得する`
     pub fn new() -> Self {
         Self {
             client: get_obs_client(),
         }
     }
 
-    /// OBS WebSocketサーバーに接続
+    /// OBS `WebSocketサーバーに接続`
     ///
     /// # Arguments
     /// * `config` - 接続設定（ホスト、ポート、パスワード）
     ///
     /// # Returns
-    /// 成功時はOk(()), 失敗時はAppError
+    /// 成功時はOk(()), `失敗時はAppError`
     pub async fn connect(&self, config: ConnectionConfig) -> Result<(), AppError> {
         self.client.connect(config).await
     }
 
-    /// OBS WebSocketサーバーから切断
+    /// OBS `WebSocketサーバーから切断`
     ///
     /// # Returns
-    /// 成功時はOk(()), 失敗時はAppError
+    /// 成功時はOk(()), `失敗時はAppError`
     pub async fn disconnect(&self) -> Result<(), AppError> {
         self.client.disconnect().await
     }
@@ -74,14 +74,15 @@ impl ObsService {
         self.client.connection_state().await
     }
 
-    /// ObsClientへの参照を取得（高度な操作用）
+    /// ObsClientへの参照を取得（高度な操作用）（将来使用予定）
     ///
     /// 通常はこのサービスのメソッドを使用すべきだが、
     /// 直接クライアントにアクセスする必要がある場合に使用
     ///
     /// # Returns
     /// ObsClientのクローン（内部状態はArcで共有）
-    pub fn client(&self) -> &ObsClient {
+    #[allow(dead_code)]
+    pub const fn client(&self) -> &ObsClient {
         &self.client
     }
 
@@ -154,12 +155,12 @@ impl ObsService {
     }
 }
 
-/// グローバルなObsServiceインスタンスを取得
+/// `グローバルなObsServiceインスタンスを取得`
 ///
-/// 複数回呼び出しても同じObsClientの状態を共有する
+/// `複数回呼び出しても同じObsClientの状態を共有する`
 ///
 /// # Returns
-/// ObsServiceインスタンス
+/// `ObsServiceインスタンス`
 pub fn obs_service() -> ObsService {
     ObsService::new()
 }

@@ -15,11 +15,14 @@ pub mod event_names {
     pub const OBS_STREAMING_CHANGED: &str = "obs:streaming-changed";
     /// 録画状態変化イベント
     pub const OBS_RECORDING_CHANGED: &str = "obs:recording-changed";
-    /// ステータス更新イベント
+    /// ステータス更新イベント（将来使用予定）
+    #[allow(dead_code)]
     pub const OBS_STATUS_UPDATE: &str = "obs:status-update";
-    /// シーン変更イベント
+    /// シーン変更イベント（将来使用予定）
+    #[allow(dead_code)]
     pub const OBS_SCENE_CHANGED: &str = "obs:scene-changed";
-    /// エラーイベント
+    /// エラーイベント（将来使用予定）
+    #[allow(dead_code)]
     pub const OBS_ERROR: &str = "obs:error";
 }
 
@@ -57,7 +60,8 @@ pub struct RecordingChangedPayload {
     pub started_at: Option<u64>,
 }
 
-/// シーン変更ペイロード
+/// シーン変更ペイロード（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneChangedPayload {
@@ -67,7 +71,8 @@ pub struct SceneChangedPayload {
     pub current_scene: String,
 }
 
-/// エラーペイロード
+/// エラーペイロード（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorPayload {
@@ -91,12 +96,13 @@ impl ObsEventEmitter {
     /// 新しいイベント発行器を作成
     ///
     /// # Arguments
-    /// * `app_handle` - TauriのAppHandle
-    pub fn new(app_handle: AppHandle) -> Self {
+    /// * `app_handle` - `TauriのAppHandle`
+    pub const fn new(app_handle: AppHandle) -> Self {
         Self { app_handle }
     }
 
-    /// AppHandleから作成 (Manager traitを使用)
+    /// `AppHandleから作成` (Manager traitを使用)（将来使用予定）
+    #[allow(dead_code)]
     pub fn from_manager<M: Manager<tauri::Wry>>(manager: &M) -> Self {
         Self {
             app_handle: manager.app_handle().clone(),
@@ -107,48 +113,52 @@ impl ObsEventEmitter {
     pub fn emit_connection_changed(&self, payload: ConnectionChangedPayload) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_CONNECTION_CHANGED, payload)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 
     /// 配信状態変化を通知
     pub fn emit_streaming_changed(&self, payload: StreamingChangedPayload) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_STREAMING_CHANGED, payload)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 
     /// 録画状態変化を通知
     pub fn emit_recording_changed(&self, payload: RecordingChangedPayload) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_RECORDING_CHANGED, payload)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 
-    /// ステータス更新を通知
+    /// ステータス更新を通知（将来使用予定）
+    #[allow(dead_code)]
     pub fn emit_status_update(&self, status: ObsStatus) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_STATUS_UPDATE, status)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 
-    /// シーン変更を通知
+    /// シーン変更を通知（将来使用予定）
+    #[allow(dead_code)]
     pub fn emit_scene_changed(&self, payload: SceneChangedPayload) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_SCENE_CHANGED, payload)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 
-    /// エラーを通知
+    /// エラーを通知（将来使用予定）
+    #[allow(dead_code)]
     pub fn emit_error(&self, payload: ErrorPayload) -> Result<(), String> {
         self.app_handle
             .emit(event_names::OBS_ERROR, payload)
-            .map_err(|e| format!("イベント発行エラー: {}", e))
+            .map_err(|e| format!("イベント発行エラー: {e}"))
     }
 }
 
-/// 簡易的なイベント発行ヘルパー関数
+/// 簡易的なイベント発行ヘルパー関数（将来使用予定）
 ///
 /// グローバルなAppHandleを使用せずに、直接イベントを発行する場合に使用
+#[allow(dead_code)]
 pub fn emit_obs_event<T: Serialize + Clone>(
     app_handle: &AppHandle,
     event_name: &str,
@@ -156,10 +166,11 @@ pub fn emit_obs_event<T: Serialize + Clone>(
 ) -> Result<(), String> {
     app_handle
         .emit(event_name, payload)
-        .map_err(|e| format!("イベント発行エラー: {}", e))
+        .map_err(|e| format!("イベント発行エラー: {e}"))
 }
 
-/// 現在時刻をUnix timestampで取得
+/// 現在時刻をUnix timestampで取得（将来使用予定）
+#[allow(dead_code)]
 pub fn current_timestamp() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

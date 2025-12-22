@@ -1,7 +1,7 @@
 import type { GpuMetrics } from '../../../types';
 import { MetricCard } from './MetricCard';
 import { formatBytes, formatPercent } from '../utils/formatters';
-import { getGpuSeverity, getEncoderSeverity, getSeverityColor } from '../utils/severity';
+import { getEncoderSeverity, getGpuSeverity, getSeverityColor } from '../utils/severity';
 
 interface GpuMetricsCardProps {
   metrics: GpuMetrics | null;

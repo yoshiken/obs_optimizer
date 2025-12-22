@@ -43,7 +43,7 @@ function App() {
       }
     };
 
-    setupSubscription();
+    void setupSubscription();
 
     // クリーンアップ: ポーリングとイベント購読を停止
     return () => {

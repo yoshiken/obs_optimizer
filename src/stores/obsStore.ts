@@ -2,14 +2,14 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ObsConnectionParams,
-  ObsStatus,
-  ConnectionState,
   ConnectionChangedPayload,
-  StreamingChangedPayload,
+  ConnectionState,
+  ObsConnectionParams,
+  ObsErrorPayload,
+  ObsStatus,
   RecordingChangedPayload,
   SceneChangedPayload,
-  ObsErrorPayload,
+  StreamingChangedPayload,
 } from '../types/commands';
 import { OBS_EVENTS } from '../types/commands';
 
@@ -211,8 +211,8 @@ export const useObsStore = create<ObsState>((set, get) => ({
     const { fetchStatus, fetchScenes } = get();
 
     // 初回取得
-    fetchStatus();
-    fetchScenes();
+    void fetchStatus();
+    void fetchScenes();
 
     // 定期取得
     const statusIntervalId = setInterval(fetchStatus, intervalMs);

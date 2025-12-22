@@ -1,0 +1,59 @@
+# rustfmt 設定ファイル
+# OBS配信最適化ツール - Rustコード整形ルール
+
+# Rust Edition
+edition = "2021"
+
+# 行の最大幅
+max_width = 100
+
+# 小さなヒューリスティックの使用（Default = バランス型）
+use_small_heuristics = "Default"
+
+# インデントにタブを使用しない（スペース4つ）
+hard_tabs = false
+tab_spaces = 4
+
+# インポートの整理
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+
+# チェーンメソッドの改行
+chain_width = 60
+use_try_shorthand = true
+
+# コメントの整形
+wrap_comments = true
+comment_width = 90
+normalize_comments = true
+
+# 関数引数の配置
+fn_args_layout = "Tall"
+
+# 構造体フィールドの配置
+struct_field_align_threshold = 0
+
+# match式の整形
+match_block_trailing_comma = true
+
+# 制御フローの整形
+control_brace_style = "AlwaysSameLine"
+
+# インポートの整形
+reorder_imports = true
+reorder_modules = true
+
+# 空行の扱い
+blank_lines_upper_bound = 1
+blank_lines_lower_bound = 0
+
+# 末尾のカンマ
+trailing_comma = "Vertical"
+
+# セミコロンの扱い
+trailing_semicolon = true
+
+# その他
+remove_nested_parens = true
+use_field_init_shorthand = true
+force_explicit_abi = true

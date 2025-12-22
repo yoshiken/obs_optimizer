@@ -13,7 +13,7 @@ use crate::monitor::{self, GpuMetrics, NetworkMetrics, ObsProcessMetrics};
 
 /// システム監視サービスのインスタンス
 ///
-/// グローバルなsysinfo::Systemへのアクセスを提供する薄いラッパー。
+/// `グローバルなsysinfo::Systemへのアクセスを提供する薄いラッパー`。
 /// monitorモジュールが既にグローバルなMutex<System>を管理しているため、
 /// このサービスはアクセスポイントとして機能する。
 #[derive(Clone, Copy)]
@@ -26,10 +26,10 @@ impl Default for SystemMonitorService {
 }
 
 impl SystemMonitorService {
-    /// 新しいSystemMonitorServiceインスタンスを作成
+    /// `新しいSystemMonitorServiceインスタンスを作成`
     ///
     /// このサービスはステートレスなので、複数回呼び出しても問題ない
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
@@ -97,12 +97,13 @@ impl SystemMonitorService {
         monitor::process::get_obs_process_metrics()
     }
 
-    /// 包括的なシステムメトリクスを取得
+    /// 包括的なシステムメトリクスを取得（将来使用予定）
     ///
     /// CPU、メモリ、GPU、ネットワークの全情報を一度に取得する
     ///
     /// # Returns
     /// システム全体のメトリクス
+    #[allow(dead_code)]
     pub fn get_all_metrics(&self) -> Result<SystemMetrics, AppError> {
         // CPU情報を収集
         let cpu_usage = self.get_cpu_usage()?;
@@ -147,10 +148,11 @@ impl SystemMonitorService {
 }
 
 // ========================================
-// 型定義（commands/system.rsと共通化すべき）
+// 型定義（将来使用予定 - commands/system.rsと共通化すべき）
 // ========================================
 
-/// CPU使用状況のメトリクス
+/// CPU使用状況のメトリクス（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CpuMetrics {
@@ -162,7 +164,8 @@ pub struct CpuMetrics {
     pub per_core_usage: Vec<f32>,
 }
 
-/// メモリ使用状況のメトリクス
+/// メモリ使用状況のメトリクス（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryMetrics {
@@ -176,7 +179,8 @@ pub struct MemoryMetrics {
     pub usage_percent: f32,
 }
 
-/// システム全体のメトリクス
+/// システム全体のメトリクス（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemMetrics {
@@ -190,13 +194,13 @@ pub struct SystemMetrics {
     pub network: NetworkMetrics,
 }
 
-/// グローバルなSystemMonitorServiceインスタンスを取得
+/// `グローバルなSystemMonitorServiceインスタンスを取得`
 ///
 /// このサービスはステートレスなので、常に新しいインスタンスを返す
 ///
 /// # Returns
-/// SystemMonitorServiceインスタンス
-pub fn system_monitor_service() -> SystemMonitorService {
+/// `SystemMonitorServiceインスタンス`
+pub const fn system_monitor_service() -> SystemMonitorService {
     SystemMonitorService::new()
 }
 

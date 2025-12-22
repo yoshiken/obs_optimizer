@@ -10,11 +10,11 @@ use once_cell::sync::OnceCell;
 
 use super::client::ObsClient;
 
-/// グローバルなObsClientインスタンス
+/// `グローバルなObsClientインスタンス`
 ///
-/// OnceCell を使用して、初回アクセス時に一度だけ初期化される
-/// ObsClient は Clone 可能で、内部で Arc を使用しているため
-/// get_obs_client() で返されるのは同じ内部状態を共有するクローン
+/// `OnceCell` を使用して、初回アクセス時に一度だけ初期化される
+/// `ObsClient` は Clone 可能で、内部で Arc を使用しているため
+/// `get_obs_client()` で返されるのは同じ内部状態を共有するクローン
 ///
 /// # 使用例
 /// ```ignore
@@ -27,10 +27,10 @@ use super::client::ObsClient;
 /// ```
 static OBS_CLIENT: OnceCell<ObsClient> = OnceCell::new();
 
-/// ObsClientへのアクセスを提供するヘルパー関数
+/// `ObsClientへのアクセスを提供するヘルパー関数`
 ///
 /// 初回呼び出し時にクライアントを初期化し、以降は同じインスタンスを返す
-/// ObsClient は Clone を実装しており、内部で Arc を使用しているため
+/// `ObsClient` は Clone を実装しており、内部で Arc を使用しているため
 /// 複数のタスクから安全に同時アクセス可能
 ///
 /// # Returns
@@ -41,7 +41,7 @@ pub fn get_obs_client() -> ObsClient {
 
 /// ObsClientをリセット（主にテスト用）
 ///
-/// 注意: OnceCell は再初期化できないため、このメソッドは
+/// 注意: `OnceCell` は再初期化できないため、このメソッドは
 /// 既存クライアントの接続を切断するのみで、インスタンスは再利用される
 /// 完全なリセットが必要な場合は、プロセス再起動を検討すること
 #[allow(dead_code)]

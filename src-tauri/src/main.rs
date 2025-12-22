@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    obs_optimizer_app_lib::run()
+    obs_optimizer_app_lib::run();
 }

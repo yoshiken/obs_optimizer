@@ -4,13 +4,13 @@
 
 use serde::{Deserialize, Serialize};
 
-/// OBS WebSocket接続設定
+/// OBS `WebSocket接続設定`
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionConfig {
-    /// OBS WebSocketサーバーのホスト (例: "localhost")
+    /// OBS `WebSocketサーバーのホスト` (例: "localhost")
     pub host: String,
-    /// OBS WebSocketサーバーのポート (デフォルト: 4455)
+    /// OBS `WebSocketサーバーのポート` (デフォルト: 4455)
     pub port: u16,
     /// 認証パスワード (OBS設定で有効化している場合に必要)
     pub password: Option<String>,
@@ -27,7 +27,8 @@ impl Default for ConnectionConfig {
 }
 
 impl ConnectionConfig {
-    /// WebSocket接続URLを生成
+    /// WebSocket接続URLを生成（将来使用予定）
+    #[allow(dead_code)]
     pub fn to_url(&self) -> String {
         format!("ws://{}:{}", self.host, self.port)
     }
@@ -52,12 +53,13 @@ impl ConnectionConfig {
     }
 }
 
-/// 再接続設定
+/// 再接続設定（将来の自動再接続機能で使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ReconnectConfig {
     /// 自動再接続を有効にするか
     pub enabled: bool,
-    /// 再接続の最大試行回数 (unlimited_retries=true の場合は無視)
+    /// 再接続の最大試行回数 (`unlimited_retries=true` の場合は無視)
     pub max_attempts: u32,
     /// 無制限再試行を有効にするか (手動停止まで継続)
     pub unlimited_retries: bool,
@@ -82,10 +84,11 @@ impl Default for ReconnectConfig {
     }
 }
 
+#[allow(dead_code)]
 impl ReconnectConfig {
     /// 指定された試行回数に対する待機時間を計算
     ///
-    /// requirements_v2.md 仕様:
+    /// `requirements_v2.md` 仕様:
     /// - 初回失敗: 即座に再試行 (attempt=0)
     /// - 1回目: 1秒後, 2回目: 2秒後, 3回目: 4秒後, 4回目: 8秒後
     /// - 5回目以降: 30秒間隔
@@ -102,13 +105,13 @@ impl ReconnectConfig {
         // 1回目以降は指数バックオフ
         // attempt=1 -> 1秒, attempt=2 -> 2秒, attempt=3 -> 4秒, attempt=4 -> 8秒
         // checked_sub でアンダーフロー防止（attempt >= 1 が保証されているが明示的に）
-        let exponent = attempt.checked_sub(1).unwrap_or(0);
+        let exponent = attempt.saturating_sub(1);
         let delay = self.interval_ms * 2u64.saturating_pow(exponent);
         delay.min(self.max_interval_ms)
     }
 
     /// 再試行を続けるべきかどうかを判定
-    pub fn should_retry(&self, attempt: u32) -> bool {
+    pub const fn should_retry(&self, attempt: u32) -> bool {
         if !self.enabled {
             return false;
         }
@@ -123,7 +126,7 @@ impl ReconnectConfig {
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ObsStatus {
-    /// OBS WebSocketに接続しているか
+    /// OBS `WebSocketに接続しているか`
     pub connected: bool,
     /// 配信中か
     pub streaming: bool,
@@ -135,7 +138,7 @@ pub struct ObsStatus {
     pub current_scene: Option<String>,
     /// 接続先のOBS情報
     pub obs_version: Option<String>,
-    /// WebSocketサーバーのバージョン
+    /// `WebSocketサーバーのバージョン`
     pub websocket_version: Option<String>,
     /// 配信時間 (秒)
     pub stream_timecode: Option<u64>,
@@ -162,7 +165,8 @@ impl ObsStatus {
         }
     }
 
-    /// 接続済みの初期ステータスを作成
+    /// 接続済みの初期ステータスを作成（将来使用予定）
+    #[allow(dead_code)]
     pub fn connected_initial() -> Self {
         Self {
             connected: true,
@@ -174,26 +178,25 @@ impl ObsStatus {
 /// 接続状態の変化を表す型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum ConnectionState {
     /// 未接続
+    #[default]
     Disconnected,
     /// 接続中
     Connecting,
     /// 接続済み
     Connected,
-    /// 再接続中
+    /// 再接続中（将来使用予定）
+    #[allow(dead_code)]
     Reconnecting,
     /// エラー状態
     Error,
 }
 
-impl Default for ConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
 
-/// シーン情報
+/// シーン情報（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneInfo {
@@ -203,7 +206,8 @@ pub struct SceneInfo {
     pub index: usize,
 }
 
-/// ソース情報
+/// ソース情報（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceInfo {

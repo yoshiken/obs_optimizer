@@ -17,13 +17,13 @@ use crate::error::AppError;
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
     // トレイメニューの作成
     let show_item = MenuItem::with_id(app, "show", "表示", true, None::<&str>)
-        .map_err(|e| AppError::tray_error(&format!("メニュー項目の作成に失敗: {}", e)))?;
+        .map_err(|e| AppError::tray_error(&format!("メニュー項目の作成に失敗: {e}")))?;
 
     let quit_item = MenuItem::with_id(app, "quit", "終了", true, None::<&str>)
-        .map_err(|e| AppError::tray_error(&format!("メニュー項目の作成に失敗: {}", e)))?;
+        .map_err(|e| AppError::tray_error(&format!("メニュー項目の作成に失敗: {e}")))?;
 
     let menu = Menu::with_items(app, &[&show_item, &quit_item])
-        .map_err(|e| AppError::tray_error(&format!("メニューの作成に失敗: {}", e)))?;
+        .map_err(|e| AppError::tray_error(&format!("メニューの作成に失敗: {e}")))?;
 
     // トレイアイコンの作成
     let icon = app.default_window_icon()
@@ -38,7 +38,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
             match event.id.as_ref() {
                 "show" => {
                     if let Err(e) = toggle_window_visibility(app) {
-                        eprintln!("ウィンドウの表示切替に失敗: {}", e);
+                        eprintln!("ウィンドウの表示切替に失敗: {e}");
                     }
                 }
                 "quit" => {
@@ -57,12 +57,12 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
             {
                 let app = tray.app_handle();
                 if let Err(e) = toggle_window_visibility(app) {
-                    eprintln!("ウィンドウの表示切替に失敗: {}", e);
+                    eprintln!("ウィンドウの表示切替に失敗: {e}");
                 }
             }
         })
         .build(app)
-        .map_err(|e| AppError::tray_error(&format!("トレイアイコンの作成に失敗: {}", e)))?;
+        .map_err(|e| AppError::tray_error(&format!("トレイアイコンの作成に失敗: {e}")))?;
 
     Ok(())
 }
@@ -78,17 +78,17 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
 fn toggle_window_visibility<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible()
-            .map_err(|e| AppError::window_error(&format!("ウィンドウの可視性確認に失敗: {}", e)))?
+            .map_err(|e| AppError::window_error(&format!("ウィンドウの可視性確認に失敗: {e}")))?
         {
             // 表示中の場合は非表示にする
             window.hide()
-                .map_err(|e| AppError::window_error(&format!("ウィンドウの非表示に失敗: {}", e)))?;
+                .map_err(|e| AppError::window_error(&format!("ウィンドウの非表示に失敗: {e}")))?;
         } else {
             // 非表示の場合は表示して前面に持ってくる
             window.show()
-                .map_err(|e| AppError::window_error(&format!("ウィンドウの表示に失敗: {}", e)))?;
+                .map_err(|e| AppError::window_error(&format!("ウィンドウの表示に失敗: {e}")))?;
             window.set_focus()
-                .map_err(|e| AppError::window_error(&format!("ウィンドウのフォーカスに失敗: {}", e)))?;
+                .map_err(|e| AppError::window_error(&format!("ウィンドウのフォーカスに失敗: {e}")))?;
         }
         Ok(())
     } else {

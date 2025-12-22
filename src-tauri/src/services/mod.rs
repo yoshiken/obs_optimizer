@@ -20,7 +20,5 @@ pub mod obs;
 pub mod system;
 
 // 公開エクスポート
-pub use obs::{obs_service, ObsService};
-pub use system::{
-    system_monitor_service, CpuMetrics, MemoryMetrics, SystemMetrics, SystemMonitorService,
-};
+pub use obs::obs_service;
+pub use system::system_monitor_service;

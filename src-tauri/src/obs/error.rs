@@ -6,8 +6,6 @@ use crate::error::AppError;
 
 /// OBS関連のエラーコード
 pub mod error_codes {
-    /// 接続エラー
-    pub const OBS_CONNECTION: &str = "OBS_CONNECTION";
     /// 認証エラー
     pub const OBS_AUTH: &str = "OBS_AUTH";
     /// 通信エラー
@@ -26,7 +24,7 @@ pub mod error_codes {
     pub const OBS_UNKNOWN: &str = "OBS_UNKNOWN";
 }
 
-/// OBS固有のAppErrorファクトリ関数
+/// `OBS固有のAppErrorファクトリ関数`
 impl AppError {
     /// 認証エラーを作成
     pub fn obs_auth(msg: &str) -> Self {
@@ -72,19 +70,19 @@ impl From<obws::error::Error> for AppError {
         let err_lower = err_str.to_lowercase();
 
         if err_lower.contains("timeout") {
-            AppError::obs_timeout(&err_str)
+            Self::obs_timeout(&err_str)
         } else if err_lower.contains("connect") || err_lower.contains("connection") {
-            AppError::obs_connection(&err_str)
+            Self::obs_connection(&err_str)
         } else if err_lower.contains("auth") || err_lower.contains("password") || err_lower.contains("handshake") {
-            AppError::obs_auth(&err_str)
+            Self::obs_auth(&err_str)
         } else if err_lower.contains("version") {
-            AppError::obs_version(&err_str)
+            Self::obs_version(&err_str)
         } else if err_lower.contains("serialize") || err_lower.contains("deserialize") {
-            AppError::obs_serialization(&err_str)
+            Self::obs_serialization(&err_str)
         } else if err_lower.contains("disconnect") {
-            AppError::obs_state(&err_str)
+            Self::obs_state(&err_str)
         } else {
-            AppError::new(error_codes::OBS_UNKNOWN, &err_str)
+            Self::new(error_codes::OBS_UNKNOWN, &err_str)
         }
     }
 }

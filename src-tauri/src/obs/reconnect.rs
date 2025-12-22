@@ -6,6 +6,9 @@
 // - 1回目: 1秒後、2回目: 2秒後、3回目: 4秒後、4回目: 8秒後
 // - 5回目以降: 30秒間隔
 // - 最大試行: 無制限（手動停止まで）
+//
+// 注意: このモジュールは将来的な自動再接続機能の実装用です
+// 現在は未使用ですが、設計済みのため保持しています
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,7 +17,8 @@ use tokio::sync::{watch, RwLock};
 use super::client::ObsClient;
 use super::types::ConnectionConfig;
 
-/// 再接続タスクの状態
+/// 再接続タスクの状態（将来使用予定）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReconnectTaskState {
     /// アイドル状態（再接続タスク未起動）
@@ -29,9 +33,10 @@ pub enum ReconnectTaskState {
     Cancelled,
 }
 
-/// 再接続タスクのハンドル
+/// 再接続タスクのハンドル（将来使用予定）
 ///
 /// このハンドルを保持することで、バックグラウンドの再接続タスクを制御可能
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct ReconnectHandle {
     /// キャンセル送信チャネル
@@ -40,6 +45,7 @@ pub struct ReconnectHandle {
     state_rx: watch::Receiver<ReconnectTaskState>,
 }
 
+#[allow(dead_code)]
 impl ReconnectHandle {
     /// 再接続タスクをキャンセル
     pub fn cancel(&self) {
@@ -60,9 +66,10 @@ impl ReconnectHandle {
     }
 }
 
-/// 自動再接続マネージャー
+/// 自動再接続マネージャー（将来使用予定）
 ///
 /// 再接続タスクのライフサイクルを管理する
+#[allow(dead_code)]
 pub struct ReconnectManager {
     /// 現在のハンドル（タスク実行中の場合）
     current_handle: Arc<RwLock<Option<ReconnectHandle>>>,
@@ -74,6 +81,7 @@ impl Default for ReconnectManager {
     }
 }
 
+#[allow(dead_code)]
 impl ReconnectManager {
     /// 新しいマネージャーを作成
     pub fn new() -> Self {
@@ -160,7 +168,7 @@ async fn reconnect_task(
 
             // キャンセル可能な待機
             tokio::select! {
-                _ = tokio::time::sleep(Duration::from_millis(delay_ms)) => {}
+                () = tokio::time::sleep(Duration::from_millis(delay_ms)) => {}
                 _ = cancel_rx.changed() => {
                     let _ = state_tx.send(ReconnectTaskState::Cancelled);
                     return;
@@ -172,7 +180,7 @@ async fn reconnect_task(
         let _ = state_tx.send(ReconnectTaskState::Attempting);
 
         match client.connect(config.clone()).await {
-            Ok(_) => {
+            Ok(()) => {
                 // 接続成功、試行回数をリセット
                 client.reset_reconnect_attempts().await;
                 let _ = state_tx.send(ReconnectTaskState::Succeeded);

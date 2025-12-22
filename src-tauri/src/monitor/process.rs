@@ -56,10 +56,11 @@ fn is_obs_process(name: &str) -> bool {
     OBS_PROCESS_NAMES.iter().any(|pattern| lower_name.contains(pattern))
 }
 
-/// 指定プロセス名のメトリクスを取得
+/// 指定プロセス名のメトリクスを取得（将来使用予定）
+#[allow(dead_code)]
 pub fn get_process_by_name(process_name: &str) -> Result<Option<ProcessMetrics>, AppError> {
     let mut sys = PROCESS_SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {e}")))?;
 
     sys.refresh_processes();
 
@@ -81,7 +82,7 @@ pub fn get_process_by_name(process_name: &str) -> Result<Option<ProcessMetrics>,
 /// OBSプロセスのメトリクスを取得
 pub fn get_obs_process_metrics() -> Result<ObsProcessMetrics, AppError> {
     let mut sys = PROCESS_SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {e}")))?;
 
     sys.refresh_processes();
 
@@ -124,7 +125,7 @@ pub fn get_obs_process_metrics() -> Result<ObsProcessMetrics, AppError> {
 #[allow(dead_code)]
 pub fn get_top_processes_by_cpu(limit: usize) -> Result<Vec<ProcessMetrics>, AppError> {
     let mut sys = PROCESS_SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock process system: {e}")))?;
 
     sys.refresh_processes();
 

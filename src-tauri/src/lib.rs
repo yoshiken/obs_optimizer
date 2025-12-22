@@ -32,7 +32,7 @@ pub fn run() {
         .setup(|app| {
             // システムトレイのセットアップ
             if let Err(e) = tray::setup_tray(app.handle()) {
-                eprintln!("[WARNING] システムトレイの初期化に失敗: {}", e);
+                eprintln!("[WARNING] システムトレイの初期化に失敗: {e}");
                 // トレイの初期化失敗は致命的ではないため、アプリケーションは継続
             }
             Ok(())
@@ -41,7 +41,7 @@ pub fn run() {
         .unwrap_or_else(|e| {
             // エラー詳細をログ出力してから終了
             eprintln!("[FATAL] Failed to run Tauri application");
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             eprintln!("Error type: {}", std::any::type_name_of_val(&e));
             eprintln!("Terminating process with exit code 1");
             std::process::exit(1);

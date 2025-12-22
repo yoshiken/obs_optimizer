@@ -68,20 +68,20 @@ export function ConfirmDialog({
 
   // フォーカストラップ: Tabキーでダイアログ内にフォーカスを閉じ込める
   useEffect(() => {
-    if (!isOpen || !dialogRef.current) return;
+    if (!isOpen || !dialogRef.current) {return;}
 
     const dialog = dialogRef.current;
     const focusableElements = dialog.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
 
-    if (focusableElements.length === 0) return;
+    if (focusableElements.length === 0) {return;}
 
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
 
     const handleTabKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab') {return;}
 
       // Shift+Tab: 最初の要素で押されたら最後の要素へ
       if (e.shiftKey && document.activeElement === firstElement) {
@@ -99,7 +99,7 @@ export function ConfirmDialog({
     return () => dialog.removeEventListener('keydown', handleTabKey);
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const confirmButtonClass =
     confirmVariant === 'danger'

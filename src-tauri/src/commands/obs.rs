@@ -19,7 +19,7 @@ use crate::services::obs_service;
 ///
 /// 同一メッセージの連続出力を抑制し、ログ肥大化を防止する
 mod rate_limited_log {
-    use super::*;
+    use super::{Instant, Lazy, Mutex, Duration};
 
     /// レート制限状態
     struct RateLimitState {
@@ -40,14 +40,14 @@ mod rate_limited_log {
 
     /// レート制限付きでエラーログを出力
     ///
-    /// 同一メッセージの場合、MIN_LOG_INTERVAL以内の再出力を抑制
+    /// `同一メッセージの場合、MIN_LOG_INTERVAL以内の再出力を抑制`
     pub fn log_error(message: &str) {
         // Mutex poisoned時でもログは出力する（デバッグ情報の消失を防ぐ）
         let mut state = match RATE_LIMIT_STATE.lock() {
             Ok(s) => s,
             Err(poisoned) => {
                 // Mutexがpoisonedでも、ログは出力してからリカバリ
-                eprintln!("[WARN] Rate limiter mutex poisoned, logging anyway: {}", message);
+                eprintln!("[WARN] Rate limiter mutex poisoned, logging anyway: {message}");
                 poisoned.into_inner()
             }
         };
@@ -70,7 +70,7 @@ mod rate_limited_log {
         };
 
         if should_log {
-            eprintln!("{}", message);
+            eprintln!("{message}");
             state.last_log_time = Some(now);
             state.last_message = message.to_string();
         }
@@ -88,7 +88,7 @@ pub struct ObsConnectionParams {
 
 impl From<ObsConnectionParams> for ConnectionConfig {
     fn from(params: ObsConnectionParams) -> Self {
-        ConnectionConfig {
+        Self {
             host: params.host,
             port: params.port,
             password: params.password,
@@ -96,14 +96,14 @@ impl From<ObsConnectionParams> for ConnectionConfig {
     }
 }
 
-/// OBS WebSocketサーバーに接続
+/// OBS `WebSocketサーバーに接続`
 ///
 /// # Arguments
 /// * `app_handle` - Tauriアプリケーションハンドル (イベント発行用)
 /// * `params` - 接続パラメータ (ホスト、ポート、パスワード)
 ///
 /// # Returns
-/// 成功時はOk(()), 失敗時はAppError
+/// 成功時はOk(()), `失敗時はAppError`
 #[tauri::command]
 pub async fn connect_obs(
     app_handle: AppHandle,
@@ -126,19 +126,19 @@ pub async fn connect_obs(
         host: Some(config.host),
         port: Some(config.port),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {e}"));
     }
 
     Ok(())
 }
 
-/// OBS WebSocketサーバーから切断
+/// OBS `WebSocketサーバーから切断`
 ///
 /// # Arguments
 /// * `app_handle` - Tauriアプリケーションハンドル (イベント発行用)
 ///
 /// # Returns
-/// 成功時はOk(()), 失敗時はAppError
+/// 成功時はOk(()), `失敗時はAppError`
 #[tauri::command]
 pub async fn disconnect_obs(app_handle: AppHandle) -> Result<(), AppError> {
     let service = obs_service();
@@ -157,7 +157,7 @@ pub async fn disconnect_obs(app_handle: AppHandle) -> Result<(), AppError> {
         host: None,
         port: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {e}"));
     }
 
     Ok(())
@@ -209,7 +209,7 @@ pub async fn start_streaming(app_handle: AppHandle) -> Result<(), AppError> {
         is_streaming: true,
         started_at: Some(crate::obs::events::current_timestamp()),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {e}"));
     }
 
     Ok(())
@@ -227,7 +227,7 @@ pub async fn stop_streaming(app_handle: AppHandle) -> Result<(), AppError> {
         is_streaming: false,
         started_at: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {e}"));
     }
 
     Ok(())
@@ -245,7 +245,7 @@ pub async fn start_recording(app_handle: AppHandle) -> Result<(), AppError> {
         is_recording: true,
         started_at: Some(crate::obs::events::current_timestamp()),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {e}"));
     }
 
     Ok(())
@@ -266,7 +266,7 @@ pub async fn stop_recording(app_handle: AppHandle) -> Result<String, AppError> {
         is_recording: false,
         started_at: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {}", e));
+        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {e}"));
     }
 
     Ok(path)

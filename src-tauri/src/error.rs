@@ -22,7 +22,7 @@ impl AppError {
     /// 新しいエラーを作成
     ///
     /// # Arguments
-    /// * `code` - エラーコード(例: "OBS_CONNECTION")
+    /// * `code` - エラーコード(例: "`OBS_CONNECTION`")
     /// * `message` - エラーメッセージ
     pub fn new(code: &str, message: &str) -> Self {
         Self {
@@ -103,7 +103,7 @@ impl From<nvml_wrapper::error::NvmlError> for AppError {
                 Self::system_monitor("Invalid argument to NVML")
             }
             _ => {
-                Self::system_monitor(&format!("NVML error: {:?}", err))
+                Self::system_monitor(&format!("NVML error: {err:?}"))
             }
         }
     }

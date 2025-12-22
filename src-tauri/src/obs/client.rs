@@ -14,6 +14,7 @@ use super::types::{ConnectionConfig as AppConnectionConfig, ConnectionState, Obs
 
 /// ビットレート計算用の統計情報
 #[derive(Debug, Clone)]
+#[derive(Default)]
 struct BitrateStats {
     /// 前回のストリーム送信バイト数
     last_stream_bytes: u64,
@@ -23,15 +24,6 @@ struct BitrateStats {
     last_sample_time: Option<Instant>,
 }
 
-impl Default for BitrateStats {
-    fn default() -> Self {
-        Self {
-            last_stream_bytes: 0,
-            last_record_bytes: 0,
-            last_sample_time: None,
-        }
-    }
-}
 
 /// 最小サンプリング間隔（秒）- ノイズ防止のため
 const MIN_BITRATE_SAMPLE_INTERVAL_SECS: f64 = 0.1;
@@ -73,7 +65,7 @@ impl BitrateStats {
     }
 
     /// 統計情報をリセット
-    fn reset(&mut self) {
+    const fn reset(&mut self) {
         self.last_stream_bytes = 0;
         self.last_record_bytes = 0;
         self.last_sample_time = None;
@@ -86,7 +78,8 @@ struct ObsClientInner {
     client: Option<Client>,
     /// 現在の接続設定
     config: Option<AppConnectionConfig>,
-    /// 再接続設定
+    /// 再接続設定（将来的な自動再接続機能で使用）
+    #[allow(dead_code)]
     reconnect_config: ReconnectConfig,
     /// 現在の接続状態
     connection_state: ConnectionState,
@@ -109,7 +102,7 @@ impl ObsClientInner {
     }
 }
 
-/// スレッドセーフなOBS WebSocketクライアント
+/// スレッドセーフなOBS `WebSocketクライアント`
 ///
 /// 内部状態はRwLockで保護されており、複数のタスクから安全にアクセス可能
 #[derive(Clone)]
@@ -124,20 +117,21 @@ impl Default for ObsClient {
 }
 
 impl ObsClient {
-    /// 新しいObsClientインスタンスを作成
+    /// `新しいObsClientインスタンスを作成`
     pub fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(ObsClientInner::new())),
         }
     }
 
-    /// 再接続設定を更新
+    /// 再接続設定を更新（将来使用予定）
+    #[allow(dead_code)]
     pub async fn set_reconnect_config(&self, config: ReconnectConfig) {
         let mut inner = self.inner.write().await;
         inner.reconnect_config = config;
     }
 
-    /// OBS WebSocketサーバーに接続
+    /// OBS `WebSocketサーバーに接続`
     ///
     /// # Arguments
     /// * `config` - 接続設定
@@ -149,7 +143,7 @@ impl ObsClient {
         config.validate().map_err(|e| {
             let msg = e.chars().take(100).collect::<String>();
             let msg = if e.len() > 100 {
-                format!("{}...", msg)
+                format!("{msg}...")
             } else {
                 msg
             };
@@ -172,8 +166,6 @@ impl ObsClient {
             broadcast_capacity: obws::client::DEFAULT_BROADCAST_CAPACITY,
             connect_timeout: obws::client::DEFAULT_CONNECT_TIMEOUT,
             dangerous: None,
-            #[cfg(feature = "tls")]
-            tls: false,
         };
 
         // obwsクライアントを作成して接続
@@ -196,7 +188,7 @@ impl ObsClient {
         }
     }
 
-    /// OBS WebSocketサーバーから切断
+    /// OBS `WebSocketサーバーから切断`
     pub async fn disconnect(&self) -> ObsResult<()> {
         let mut inner = self.inner.write().await;
 
@@ -258,8 +250,8 @@ impl ObsClient {
 
         let status = ObsStatus {
             connected: true,
-            streaming: stream_status.as_ref().map(|s| s.active).unwrap_or(false),
-            recording: record_status.as_ref().map(|r| r.active).unwrap_or(false),
+            streaming: stream_status.as_ref().is_some_and(|s| s.active),
+            recording: record_status.as_ref().is_some_and(|r| r.active),
             virtual_cam_active: virtual_cam_status.unwrap_or(false),
             current_scene: current_scene.map(|s| s.id.name),
             obs_version: Some(version_info.obs_version.to_string()),
@@ -276,7 +268,8 @@ impl ObsClient {
         Ok(status)
     }
 
-    /// ステータスを更新して返す (refresh_statusのエイリアス)
+    /// ステータスを更新して返す (`refresh_statusのエイリアス`)（将来使用予定）
+    #[allow(dead_code)]
     pub async fn refresh_status(&self) -> ObsResult<ObsStatus> {
         self.get_status().await
     }
@@ -356,10 +349,11 @@ impl ObsClient {
         Ok(path)
     }
 
-    /// 再接続を試行（シングルショット）
+    /// 再接続を試行（シングルショット）（将来使用予定）
     ///
     /// 保存された設定を使用して単一の再接続試行を行う
     /// バックグラウンドでの自動再接続には `ReconnectManager` を使用すること
+    #[allow(dead_code)]
     pub async fn reconnect(&self) -> ObsResult<()> {
         // 書き込みロックで設定取得と試行回数インクリメントを原子的に実行
         // (レース条件を防止)
@@ -372,10 +366,10 @@ impl ObsClient {
 
             // should_retry() で再試行可否を判定
             if !reconnect_config.should_retry(attempts) {
-                return if !reconnect_config.enabled {
-                    Err(AppError::obs_state("自動再接続が無効です"))
-                } else {
+                return if reconnect_config.enabled {
                     Err(AppError::obs_connection("再接続の試行回数が上限に達しました"))
+                } else {
+                    Err(AppError::obs_state("自動再接続が無効です"))
                 };
             }
 
@@ -400,7 +394,8 @@ impl ObsClient {
         self.connect(config).await
     }
 
-    /// 現在の接続設定を取得
+    /// 現在の接続設定を取得（将来使用予定）
+    #[allow(dead_code)]
     pub async fn get_config(&self) -> Option<AppConnectionConfig> {
         let inner = self.inner.read().await;
         inner.config.clone()

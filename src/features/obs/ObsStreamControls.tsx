@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useObsStore } from '../../stores/obsStore';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 
@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
  * 時間コード（ミリ秒）を HH:MM:SS 形式に変換
  */
 function formatTimecode(ms: number | null): string {
-  if (ms === null || ms < 0) return '00:00:00';
+  if (ms === null || ms < 0) {return '00:00:00';}
 
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -143,7 +143,7 @@ export function ObsStreamControls() {
         confirmText="停止する"
         cancelText="キャンセル"
         confirmVariant="danger"
-        onConfirm={handleConfirmStreamingStop}
+        onConfirm={() => void handleConfirmStreamingStop()}
         onCancel={() => setShowStreamingStopDialog(false)}
       />
 
@@ -155,7 +155,7 @@ export function ObsStreamControls() {
         confirmText="停止する"
         cancelText="キャンセル"
         confirmVariant="danger"
-        onConfirm={handleConfirmRecordingStop}
+        onConfirm={() => void handleConfirmRecordingStop()}
         onCancel={() => setShowRecordingStopDialog(false)}
       />
 

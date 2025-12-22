@@ -2,14 +2,14 @@ import { useEffect } from 'react';
 import { useMetricsStore } from '../../stores/metricsStore';
 import {
   getCpuSeverity,
-  getMemorySeverity,
   getGpuSeverity,
+  getMemorySeverity,
   getSeverityColorClass,
 } from '../../utils/severity';
 
 /** バイト数を人間が読みやすい形式に変換 */
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) {return '0 B';}
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const k = 1024;

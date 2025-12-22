@@ -46,7 +46,7 @@ impl NetworkState {
         let mut rx_total = 0u64;
         let mut tx_total = 0u64;
 
-        for (_name, data) in networks.iter() {
+        for (_name, data) in networks {
             rx_total = rx_total.saturating_add(data.total_received());
             tx_total = tx_total.saturating_add(data.total_transmitted());
         }
@@ -97,7 +97,7 @@ static NETWORK_STATE: Lazy<Mutex<NetworkState>> = Lazy::new(|| {
 /// 最初の呼び出しでは0を返す可能性がある
 pub fn get_network_metrics() -> Result<NetworkMetrics, AppError> {
     let mut state = NETWORK_STATE.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock network state: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock network state: {e}")))?;
 
     let (download_speed, upload_speed) = state.get_speeds();
 
@@ -111,10 +111,9 @@ pub fn get_network_metrics() -> Result<NetworkMetrics, AppError> {
 #[allow(dead_code)]
 pub fn get_network_interfaces() -> Result<Vec<String>, AppError> {
     let state = NETWORK_STATE.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock network state: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock network state: {e}")))?;
 
-    let names: Vec<String> = state.networks.iter()
-        .map(|(name, _)| name.to_string())
+    let names: Vec<String> = state.networks.keys().cloned()
         .collect();
 
     Ok(names)

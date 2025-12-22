@@ -39,22 +39,20 @@ static NVML_INIT: Lazy<Mutex<Option<Result<(), String>>>> = Lazy::new(|| {
 ///
 /// 初回呼び出し時にNVMLの初期化を試行し、結果をキャッシュする
 fn is_nvml_available() -> bool {
-    let mut init_result = match NVML_INIT.lock() {
-        Ok(lock) => lock,
-        Err(_) => return false, // Mutex poisoned
+    let Ok(mut init_result) = NVML_INIT.lock() else {
+        return false; // Mutex poisoned
     };
 
     if init_result.is_none() {
         // 初回初期化
         *init_result = Some(match Nvml::init() {
             Ok(_) => Ok(()),
-            Err(e) => Err(format!("NVML initialization failed: {:?}", e)),
+            Err(e) => Err(format!("NVML initialization failed: {e:?}")),
         });
     }
 
     init_result.as_ref()
-        .map(|r| r.is_ok())
-        .unwrap_or(false)
+        .is_some_and(std::result::Result::is_ok)
 }
 
 
@@ -73,15 +71,13 @@ pub fn get_gpu_metrics() -> Result<Option<GpuMetrics>, AppError> {
     }
 
     // NVML初期化
-    let nvml = match Nvml::init() {
-        Ok(n) => n,
-        Err(_) => return Ok(None), // 初期化失敗時はNoneを返す
+    let Ok(nvml) = Nvml::init() else {
+        return Ok(None); // 初期化失敗時はNoneを返す
     };
 
     // デバイス数を確認
-    let device_count = match nvml.device_count() {
-        Ok(count) => count,
-        Err(_) => return Ok(None),
+    let Ok(device_count) = nvml.device_count() else {
+        return Ok(None);
     };
 
     if device_count == 0 {
@@ -106,13 +102,13 @@ fn get_gpu_metrics_by_index(nvml: &Nvml, index: u32) -> Result<Option<GpuMetrics
     // デバイス取得
     let device = match nvml.device_by_index(index) {
         Ok(d) => d,
-        Err(NvmlError::InvalidArg) | Err(NvmlError::GpuLost) => return Ok(None),
+        Err(NvmlError::InvalidArg | NvmlError::GpuLost) => return Ok(None),
         Err(e) => return Err(e.into()),
     };
 
     // GPU名称取得
     let name = device.name()
-        .unwrap_or_else(|_| format!("Unknown GPU #{}", index));
+        .unwrap_or_else(|_| format!("Unknown GPU #{index}"));
 
     // 使用率取得
     let utilization = device.utilization_rates()?;
@@ -140,13 +136,14 @@ fn get_gpu_metrics_by_index(nvml: &Nvml, index: u32) -> Result<Option<GpuMetrics
     }))
 }
 
-/// 全GPUのリストを取得（マルチGPU対応）
+/// 全GPUのリストを取得（マルチGPU対応）（将来使用予定）
 ///
 /// システム内の全NVIDIA GPUの情報を取得します。
 ///
 /// # Returns
 /// - `Ok(Vec<GpuMetrics>)` - 検出されたGPUのリスト（空の場合あり）
 /// - `Err(AppError)` - エラーが発生した場合
+#[allow(dead_code)]
 pub fn get_all_gpu_metrics() -> Result<Vec<GpuMetrics>, AppError> {
     // NVMLが利用可能かチェック
     if !is_nvml_available() {
@@ -154,28 +151,23 @@ pub fn get_all_gpu_metrics() -> Result<Vec<GpuMetrics>, AppError> {
     }
 
     // NVML初期化
-    let nvml = match Nvml::init() {
-        Ok(n) => n,
-        Err(_) => return Ok(vec![]),
+    let Ok(nvml) = Nvml::init() else {
+        return Ok(vec![]);
     };
 
     // デバイス数を取得
-    let device_count = match nvml.device_count() {
-        Ok(count) => count,
-        Err(_) => return Ok(vec![]),
+    let Ok(device_count) = nvml.device_count() else {
+        return Ok(vec![]);
     };
 
     let mut gpu_list = Vec::new();
 
     // 全GPUをループ
     for i in 0..device_count {
-        match get_gpu_metrics_by_index(&nvml, i)? {
-            Some(metrics) => gpu_list.push(metrics),
-            None => {
-                // 特定のGPUが取得できない場合はスキップ
-                continue;
-            }
+        if let Some(metrics) = get_gpu_metrics_by_index(&nvml, i)? {
+            gpu_list.push(metrics);
         }
+        // 特定のGPUが取得できない場合はスキップ
     }
 
     Ok(gpu_list)

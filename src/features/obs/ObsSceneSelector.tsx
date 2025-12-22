@@ -21,7 +21,7 @@ export function ObsSceneSelector() {
   // シーン変更ハンドラ
   const handleSceneChange = useCallback(
     async (sceneName: string) => {
-      if (sceneName === currentScene) return;
+      if (sceneName === currentScene) {return;}
       try {
         await setCurrentScene(sceneName);
       } catch (e) {
@@ -34,7 +34,7 @@ export function ObsSceneSelector() {
   // ドロップダウンからの変更ハンドラ
   const handleSelectChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
-      handleSceneChange(event.target.value);
+      void handleSceneChange(event.target.value);
     },
     [handleSceneChange]
   );
@@ -94,7 +94,7 @@ export function ObsSceneSelector() {
               return (
                 <button
                   key={scene}
-                  onClick={() => handleSceneChange(scene)}
+                  onClick={() => void handleSceneChange(scene)}
                   disabled={loading || isActive}
                   className={`flex items-center justify-between px-4 py-3 rounded-md border transition-all ${
                     isActive

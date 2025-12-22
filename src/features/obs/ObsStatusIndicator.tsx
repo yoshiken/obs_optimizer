@@ -4,7 +4,7 @@ import { useObsStore } from '../../stores/obsStore';
  * 時間コード（ミリ秒）を HH:MM:SS 形式に変換
  */
 function formatTimecode(ms: number | null): string {
-  if (ms === null || ms < 0) return '--:--:--';
+  if (ms === null || ms < 0) {return '--:--:--';}
 
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -20,7 +20,7 @@ function formatTimecode(ms: number | null): string {
  * ビットレートを Mbps 形式に変換
  */
 function formatBitrate(bps: number | null): string {
-  if (bps === null || bps < 0) return '-- Mbps';
+  if (bps === null || bps < 0) {return '-- Mbps';}
   const mbps = bps / 1_000_000;
   return `${mbps.toFixed(2)} Mbps`;
 }
@@ -45,13 +45,13 @@ export function ObsStatusIndicator() {
 
   // 配信バッジの色
   const getStreamingBadgeClass = () => {
-    if (!status?.streaming) return 'bg-gray-400';
+    if (!status?.streaming) {return 'bg-gray-400';}
     return 'bg-red-500 animate-pulse';
   };
 
   // 録画バッジの色
   const getRecordingBadgeClass = () => {
-    if (!status?.recording) return 'bg-gray-400';
+    if (!status?.recording) {return 'bg-gray-400';}
     return 'bg-red-500 animate-pulse';
   };
 

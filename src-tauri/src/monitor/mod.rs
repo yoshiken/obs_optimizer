@@ -17,7 +17,7 @@ use crate::error::AppError;
 // 公開エクスポート
 pub use gpu::GpuMetrics;
 pub use network::NetworkMetrics;
-pub use process::{ProcessMetrics, ObsProcessMetrics};
+pub use process::ObsProcessMetrics;
 
 // グローバルなSystem インスタンス（スレッドセーフ）
 // Mutex::lock() はpoisoned状態（パニック発生時）でもmap_errで適切にエラー変換される
@@ -29,7 +29,7 @@ static SYSTEM: Lazy<Mutex<System>> = Lazy::new(|| {
 /// CPU使用率を取得（0-100%）
 pub fn get_cpu_usage() -> Result<f32, AppError> {
     let mut sys = SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
     sys.refresh_cpu_usage();
 
     // 全CPUの平均使用率を計算
@@ -38,7 +38,7 @@ pub fn get_cpu_usage() -> Result<f32, AppError> {
         return Ok(0.0);
     }
 
-    let total: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
+    let total: f32 = cpus.iter().map(sysinfo::Cpu::cpu_usage).sum();
     let avg = total / cpus.len() as f32;
 
     // 値の妥当性チェック
@@ -53,7 +53,7 @@ pub fn get_cpu_usage() -> Result<f32, AppError> {
 /// メモリ情報を取得（使用量, 総量）バイト単位
 pub fn get_memory_info() -> Result<(u64, u64), AppError> {
     let mut sys = SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
     sys.refresh_memory();
     Ok((sys.used_memory(), sys.total_memory()))
 }
@@ -61,14 +61,14 @@ pub fn get_memory_info() -> Result<(u64, u64), AppError> {
 /// CPUコア数を取得
 pub fn get_cpu_core_count() -> Result<usize, AppError> {
     let sys = SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
     Ok(sys.cpus().len())
 }
 
 /// 各CPUコアの使用率を取得（0-100%のベクター）
 pub fn get_per_core_cpu_usage() -> Result<Vec<f32>, AppError> {
     let mut sys = SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
     sys.refresh_cpu_usage();
 
     let usage: Vec<f32> = sys.cpus()
@@ -89,7 +89,7 @@ pub fn get_per_core_cpu_usage() -> Result<Vec<f32>, AppError> {
 /// 利用可能なメモリを取得（バイト単位）
 pub fn get_available_memory() -> Result<u64, AppError> {
     let mut sys = SYSTEM.lock()
-        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {}", e)))?;
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
     sys.refresh_memory();
     Ok(sys.available_memory())
 }

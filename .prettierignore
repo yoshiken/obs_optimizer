@@ -1,0 +1,27 @@
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+
+# Dependencies
+node_modules/
+
+# Tauri backend
+src-tauri/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

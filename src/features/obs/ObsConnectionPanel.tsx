@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useObsStore } from '../../stores/obsStore';
 import type { ObsConnectionParams } from '../../types/commands';
 import { translateError } from '../../utils/errorTranslation';
@@ -49,7 +49,7 @@ export function ObsConnectionPanel() {
 
   // エラーメッセージを翻訳
   const translatedError = useMemo(() => {
-    if (!error) return null;
+    if (!error) {return null;}
     return translateError(error);
   }, [error]);
 
@@ -60,7 +60,7 @@ export function ObsConnectionPanel() {
 
   // 接続ハンドラ
   const handleConnect = useCallback(async () => {
-    if (!portValidation.valid) return;
+    if (!portValidation.valid) {return;}
 
     const params: ObsConnectionParams = {
       host,
@@ -285,7 +285,7 @@ export function ObsConnectionPanel() {
         <div className="pt-2">
           {isConnected ? (
             <button
-              onClick={handleDisconnect}
+              onClick={() => void handleDisconnect()}
               disabled={loading}
               className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -293,7 +293,7 @@ export function ObsConnectionPanel() {
             </button>
           ) : (
             <button
-              onClick={handleConnect}
+              onClick={() => void handleConnect()}
               disabled={loading || isConnecting || !canConnect}
               className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >

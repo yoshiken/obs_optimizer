@@ -39,7 +39,7 @@ export function MetricsChart({
   showCurrentValue = true,
 }: MetricsChartProps) {
   const width = 300; // 固定幅（親要素でスケール）
-  const padding = { top: 10, right: 10, bottom: 20, left: 40 };
+  const padding = useMemo(() => ({ top: 10, right: 10, bottom: 20, left: 40 }), []);
 
   // グラフ描画領域
   const chartWidth = width - padding.left - padding.right;

@@ -7,6 +7,58 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Lint設定
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+# 重要: エラーハンドリング関連（warn → 将来的にdenyへ）
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+
+# コード品質（優先度-1でグループを先に適用、個別ルールで上書き可能に）
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# 許可する警告（Tauriとの互換性のため）
+must_use_candidate = "allow"
+module_name_repetitions = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+
+# 意図的なキャスト（f32←→f64、u64→f64など）
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+
+# サービス層のAPI設計上の選択
+unused_self = "allow"
+trivially_copy_pass_by_ref = "allow"
+
+# nursery警告（実験的）
+significant_drop_tightening = "allow"
+
+# 日本語ドキュメントではbacktick不要
+doc_markdown = "allow"
+
+# 構造体設計上の選択（OBS APIとの互換性）
+struct_excessive_bools = "allow"
+struct_field_names = "allow"
+
+# if let elseスタイルの選択
+option_if_let_else = "allow"
+
+# パフォーマンス
+perf = { level = "warn", priority = -1 }
+
+# 複雑度
+complexity = { level = "warn", priority = -1 }
+cognitive_complexity = "warn"
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -28,3 +80,20 @@ once_cell = "1.19"
 obws = "0.14"
 nvml-wrapper = "0.10"
 
+# ==============================================================================
+# 開発コマンド
+# ==============================================================================
+#
+# Clippy（静的解析・Lint）:
+#   cargo clippy -- -D warnings                # 全警告をエラー扱い
+#   cargo clippy --all-targets -- -D warnings  # テストコード含む
+#   cargo clippy --fix                         # 自動修正
+#
+# rustfmt（コード整形）:
+#   cargo fmt                                  # 全ファイル整形
+#   cargo fmt -- --check                       # 整形チェックのみ（CI用）
+#
+# 両方実行:
+#   cargo fmt && cargo clippy -- -D warnings
+#
+# ==============================================================================

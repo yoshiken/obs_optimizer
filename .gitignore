@@ -46,3 +46,12 @@ npm-debug.log*
 *.tmp
 *.bak
 ss.png
+
+# SSH keys (NEVER commit)
+id_*
+*.pem
+
+# Generated docs (development only)
+LINT_QUICK_REFERENCE.md
+**/LINT_SETUP_REPORT.md
+**/.clippy-quickref.md
