@@ -1,0 +1,48 @@
+# Environment variables (contains secrets)
+.env
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Node.js
+node_modules/
+dist/
+.pnpm-store/
+
+# Tauri
+src-tauri/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Windows cross-compile cache
+.xwin-cache/
+.xwin-sdk/
+
+# Claude Code session files (development only)
+.claude/
+.claude-locks/
+
+# Temporary files
+*.tmp
+*.bak
+ss.png

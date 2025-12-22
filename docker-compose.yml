@@ -1,0 +1,173 @@
+services:
+  # Development environment (interactive shell)
+  obs-optimizer-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obs-optimizer-dev
+
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - pnpm-cache:/home/developer/.local/share/pnpm
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY:-}
+      - RUST_BACKTRACE=1
+      - CARGO_TERM_COLOR=always
+      - DISPLAY=${DISPLAY:-:0}
+      - WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+    stdin_open: true
+    tty: true
+
+    ports:
+      - "1420:1420"  # Tauri dev server
+      - "4455:4455"  # OBS WebSocket
+
+    working_dir: /workspace
+
+  # ============================================
+  # Parallel Claude Code Sessions
+  # ============================================
+  #
+  # NOTE: SESSION_COMMANDER はホスト側で起動する（Docker外）
+  # 司令塔の役割:
+  #   - 依存関係リクエストを監視
+  #   - Dockerfile を更新
+  #   - docker compose build を実行
+  #   - コンテナを再起動
+  #
+  # 起動方法: claude --session SESSION_COMMANDER
+  #
+  # ============================================
+
+  # SESSION_CORE: Rust Backend / Tauri
+  session-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-session-core
+
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - pnpm-cache:/home/developer/.local/share/pnpm
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY:-}
+      - RUST_BACKTRACE=1
+      - CARGO_TERM_COLOR=always
+      - SESSION_NAME=SESSION_CORE
+
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+
+    command: ["claude"]
+
+    profiles:
+      - core
+      - parallel
+      - all
+
+  # SESSION_UI: React Frontend
+  session-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-session-ui
+
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - pnpm-cache:/home/developer/.local/share/pnpm
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY:-}
+      - CARGO_TERM_COLOR=always
+      - SESSION_NAME=SESSION_UI
+
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+
+    command: ["claude"]
+
+    profiles:
+      - ui
+      - parallel
+      - all
+
+  # SESSION_OBS: OBS WebSocket Integration
+  session-obs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-session-obs
+
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - pnpm-cache:/home/developer/.local/share/pnpm
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY:-}
+      - RUST_BACKTRACE=1
+      - CARGO_TERM_COLOR=always
+      - SESSION_NAME=SESSION_OBS
+
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+
+    command: ["claude"]
+
+    profiles:
+      - obs
+      - parallel
+      - all
+
+  # SESSION_MONITOR: System Metrics Monitoring
+  session-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-session-monitor
+
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - pnpm-cache:/home/developer/.local/share/pnpm
+
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY:-}
+      - RUST_BACKTRACE=1
+      - CARGO_TERM_COLOR=always
+      - SESSION_NAME=SESSION_MONITOR
+
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+
+    command: ["claude"]
+
+    profiles:
+      - monitor
+      - parallel
+      - all
+
+volumes:
+  cargo-cache:
+  cargo-git:
+  pnpm-cache:
