@@ -401,13 +401,15 @@ impl ObsClient {
         inner.config.clone()
     }
 
-    /// 再接続設定を取得
+    /// 再接続設定を取得（将来使用予定）
+    #[allow(dead_code)]
     pub async fn get_reconnect_config(&self) -> ReconnectConfig {
         let inner = self.inner.read().await;
         inner.reconnect_config.clone()
     }
 
-    /// 再接続試行回数をリセット
+    /// 再接続試行回数をリセット（将来使用予定）
+    #[allow(dead_code)]
     pub async fn reset_reconnect_attempts(&self) {
         let mut inner = self.inner.write().await;
         inner.reconnect_attempts = 0;

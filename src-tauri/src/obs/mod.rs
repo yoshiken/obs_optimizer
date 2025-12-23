@@ -26,6 +26,7 @@ pub use types::{
     ObsStatus,
 };
 // 設定関連の型をエクスポート（公開API用）
+// 将来のAPI拡張のために定義を維持
 #[allow(unused_imports)]
 pub use settings::{
     get_obs_settings,
