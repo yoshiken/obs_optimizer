@@ -62,7 +62,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   saveConfig: async (config: SimpleAppConfig) => {
     set({ loading: true, error: null });
     try {
-      await invoke('save_config', { config });
+      await invoke('save_app_config', { config });
       set({ config, loading: false });
     } catch (e) {
       set({
@@ -75,11 +75,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   updateConfig: async (partial: Partial<SimpleAppConfig>) => {
     const { config, saveConfig } = get();
-    if (!config) {
-      throw new Error('設定が読み込まれていません');
-    }
-
-    const updatedConfig = { ...config, ...partial };
+    // configがnullの場合はデフォルト設定を使用
+    const baseConfig = config ?? DEFAULT_CONFIG;
+    const updatedConfig = { ...baseConfig, ...partial };
     await saveConfig(updatedConfig);
   },
 

@@ -13,6 +13,35 @@ import type {
 } from '../types/commands';
 import { OBS_EVENTS } from '../types/commands';
 
+/**
+ * エラーからメッセージを抽出するヘルパー関数
+ * Tauriのinvokeエラーは様々な形式で返されるため、適切に処理する
+ */
+function extractErrorMessage(e: unknown): string {
+  if (e instanceof Error) {
+    return e.message;
+  }
+  if (typeof e === 'string') {
+    return e;
+  }
+  if (e && typeof e === 'object') {
+    // Tauriエラー形式: { message: string } または { error: string }
+    if ('message' in e && typeof (e as { message: unknown }).message === 'string') {
+      return (e as { message: string }).message;
+    }
+    if ('error' in e && typeof (e as { error: unknown }).error === 'string') {
+      return (e as { error: string }).error;
+    }
+    // JSON.stringifyでオブジェクトを文字列化（[object Object]を回避）
+    try {
+      return JSON.stringify(e);
+    } catch {
+      return '不明なエラーが発生しました';
+    }
+  }
+  return '不明なエラーが発生しました';
+}
+
 // ========================================
 // ストア状態の型定義
 // ========================================
@@ -76,7 +105,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
     } catch (e) {
       set({
         connectionState: 'error',
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -95,7 +124,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -114,7 +143,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       }
     } catch (e) {
       // ステータス取得失敗時は警告として記録（接続状態は変更しない）
-      const message = e instanceof Error ? e.message : String(e);
+      const message = extractErrorMessage(e);
       set({ warning: `ステータス取得失敗: ${message}` });
     }
   },
@@ -125,7 +154,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       set({ scenes });
     } catch (e) {
       // シーン取得失敗時は警告として記録
-      const message = e instanceof Error ? e.message : String(e);
+      const message = extractErrorMessage(e);
       set({ scenes: [], warning: `シーン一覧取得失敗: ${message}` });
     }
   },
@@ -139,7 +168,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       set({ loading: false });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -154,7 +183,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       set({ loading: false });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -169,7 +198,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       set({ loading: false });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -184,7 +213,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       set({ loading: false });
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
@@ -200,7 +229,7 @@ export const useObsStore = create<ObsState>((set, get) => ({
       return outputPath;
     } catch (e) {
       set({
-        error: e instanceof Error ? e.message : String(e),
+        error: extractErrorMessage(e),
         loading: false,
       });
       throw e;
