@@ -148,6 +148,7 @@ pub fn get_top_processes_by_cpu(limit: usize) -> Result<Vec<ProcessMetrics>, App
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

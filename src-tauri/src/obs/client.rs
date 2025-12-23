@@ -412,6 +412,28 @@ impl ObsClient {
         let mut inner = self.inner.write().await;
         inner.reconnect_attempts = 0;
     }
+
+    /// 内部のobwsクライアントに対してクロージャを実行
+    ///
+    /// ビデオ/オーディオ設定の取得など、obwsの直接操作が必要な場合に使用
+    ///
+    /// # Arguments
+    /// * `f` - obws::Clientを受け取り、Futureを返すクロージャ
+    ///
+    /// # Returns
+    /// クロージャの戻り値
+    #[allow(dead_code)]
+    pub async fn with_client<F, Fut, T>(&self, f: F) -> ObsResult<T>
+    where
+        F: FnOnce(&Client) -> Fut,
+        Fut: std::future::Future<Output = Result<T, obws::error::Error>>,
+    {
+        let inner = self.inner.read().await;
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+        f(client).await.map_err(AppError::from)
+    }
 }
 
 #[cfg(test)]
@@ -448,6 +470,198 @@ mod tests {
             ..Default::default()
         };
         client.set_reconnect_config(config).await;
-        // 設定が反映されているか確認（内部状態なので直接確認は難しい）
+        let retrieved_config = client.get_reconnect_config().await;
+        assert!(!retrieved_config.enabled);
+        assert_eq!(retrieved_config.max_attempts, 10);
+    }
+
+    #[tokio::test]
+    async fn test_connection_state_transitions() {
+        let client = ObsClient::new();
+
+        // 初期状態
+        assert_eq!(client.connection_state().await, ConnectionState::Disconnected);
+
+        // 切断（冪等性確認）
+        client.disconnect().await.expect("disconnect should succeed");
+        assert_eq!(client.connection_state().await, ConnectionState::Disconnected);
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_attempts_reset() {
+        let client = ObsClient::new();
+
+        // 再接続試行回数をリセット
+        client.reset_reconnect_attempts().await;
+
+        // エラーにならないことを確認
+        // （内部カウンターは直接取得できないので、リセット操作自体が成功すればOK）
+    }
+
+    #[tokio::test]
+    async fn test_get_config_when_not_connected() {
+        let client = ObsClient::new();
+        let config = client.get_config().await;
+        assert!(config.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_invalid_connection_config() {
+        let client = ObsClient::new();
+
+        // 無効なポート番号
+        let invalid_config = AppConnectionConfig {
+            host: "localhost".to_string(),
+            port: 0, // 無効なポート
+            password: None,
+        };
+
+        let result = client.connect(invalid_config).await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bitrate_stats_initial_state() {
+        let stats = BitrateStats::default();
+        assert_eq!(stats.last_stream_bytes, 0);
+        assert_eq!(stats.last_record_bytes, 0);
+        assert!(stats.last_sample_time.is_none());
+    }
+
+    #[test]
+    fn test_bitrate_stats_calculate_first_call() {
+        let mut stats = BitrateStats::default();
+
+        // 初回呼び出しはNoneを返す（基準値設定のため）
+        let result = stats.calculate_stream_bitrate(1000);
+        assert!(result.is_none());
+        assert_eq!(stats.last_stream_bytes, 1000);
+        assert!(stats.last_sample_time.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_bitrate_stats_calculate_with_interval() {
+        let mut stats = BitrateStats::default();
+
+        // 初回サンプリング
+        stats.calculate_stream_bitrate(0);
+
+        // 100ms未満の場合はNoneを返す
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        let result = stats.calculate_stream_bitrate(10000);
+        assert!(result.is_none());
+
+        // 100ms以上経過した場合は計算される
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        let result = stats.calculate_stream_bitrate(20000);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_bitrate_stats_saturating_sub() {
+        let mut stats = BitrateStats::default();
+
+        // 初回サンプリング
+        stats.calculate_stream_bitrate(1000);
+        stats.last_sample_time = Some(Instant::now() - std::time::Duration::from_secs(1));
+
+        // 前回より小さい値でもパニックしない（saturating_sub）
+        let result = stats.calculate_stream_bitrate(500);
+        assert!(result.is_some());
+        assert_eq!(result.expect("bitrate calculated"), 0);
+    }
+
+    #[test]
+    fn test_bitrate_stats_reset() {
+        let mut stats = BitrateStats {
+            last_stream_bytes: 1000,
+            last_record_bytes: 2000,
+            last_sample_time: Some(Instant::now()),
+        };
+
+        stats.reset();
+
+        assert_eq!(stats.last_stream_bytes, 0);
+        assert_eq!(stats.last_record_bytes, 0);
+        assert!(stats.last_sample_time.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_without_initial_connection() {
+        let client = ObsClient::new();
+
+        // 初期接続なしでの再接続試行はエラーになる
+        let result = client.reconnect().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_config_max_attempts() {
+        let client = ObsClient::new();
+
+        // 再接続無効化
+        let config = ReconnectConfig {
+            enabled: false,
+            max_attempts: 0,
+            ..Default::default()
+        };
+        client.set_reconnect_config(config).await;
+
+        // 再接続試行はエラーになる
+        let result = client.reconnect().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_scene_operations_when_not_connected() {
+        let client = ObsClient::new();
+
+        // 未接続時のシーン操作はエラー
+        let result = client.get_scene_list().await;
+        assert!(result.is_err());
+
+        let result = client.set_current_scene("test").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_streaming_operations_when_not_connected() {
+        let client = ObsClient::new();
+
+        // 未接続時の配信操作はエラー
+        let result = client.start_streaming().await;
+        assert!(result.is_err());
+
+        let result = client.stop_streaming().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_recording_operations_when_not_connected() {
+        let client = ObsClient::new();
+
+        // 未接続時の録画操作はエラー
+        let result = client.start_recording().await;
+        assert!(result.is_err());
+
+        let result = client.stop_recording().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_with_client_when_not_connected() {
+        let client = ObsClient::new();
+
+        // 未接続時のwith_client呼び出しはエラー
+        let result = client.with_client(|_c| async {
+            Ok::<(), obws::error::Error>(())
+        }).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_default_implementation() {
+        let client = ObsClient::default();
+        assert!(!client.is_connected().await);
     }
 }

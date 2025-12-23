@@ -205,6 +205,7 @@ pub const fn system_monitor_service() -> SystemMonitorService {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

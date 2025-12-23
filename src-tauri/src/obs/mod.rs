@@ -9,6 +9,7 @@ pub mod events;
 pub mod reconnect;
 pub mod state;
 pub mod types;
+pub mod settings;
 
 // 主要な型の再エクスポート
 pub use client::ObsClient;
@@ -23,4 +24,14 @@ pub use types::{
     ConnectionConfig,
     ConnectionState,
     ObsStatus,
+};
+// 設定関連の型をエクスポート（公開API用）
+#[allow(unused_imports)]
+pub use settings::{
+    get_obs_settings,
+    ObsSettings,
+    VideoSettings,
+    AudioSettings,
+    OutputSettings,
+    EncoderType,
 };

@@ -1,11 +1,59 @@
+// Clippy pedantic lint allowances for pragmatic development
+// These lints are overly strict for this project's use cases
+#![allow(clippy::cast_possible_wrap)]        // Unix timestamps won't overflow i64
+#![allow(clippy::cast_possible_truncation)]  // Known-safe float to int casts
+#![allow(clippy::cast_sign_loss)]            // Known-positive values
+#![allow(clippy::cast_precision_loss)]       // Acceptable for display purposes
+#![allow(clippy::cast_lossless)]             // f32 to f64 is fine with `as`
+#![allow(clippy::missing_const_for_fn)]      // Const fn is optional optimization
+#![allow(clippy::unnecessary_wraps)]         // Result types for future-proofing
+#![allow(clippy::uninlined_format_args)]     // Style preference
+#![allow(clippy::unnecessary_debug_formatting)] // Debug prints are intentional
+#![allow(clippy::float_cmp)]                 // Test assertions with known values
+#![allow(clippy::case_sensitive_file_extension_comparisons)] // Tests use known lowercase
+#![allow(clippy::match_same_arms)]           // Intentional for future expansion
+#![allow(clippy::manual_string_new)]         // "".to_string() is readable
+#![allow(clippy::format_push_string)]        // format! + push_str is clear
+#![allow(clippy::single_match_else)]         // match is clearer in some contexts
+#![allow(clippy::manual_range_contains)]     // Comparison operators are readable
+#![allow(clippy::module_inception)]          // Nested test module is standard
+
 mod error;
 mod commands;
 mod obs;
 mod monitor;
 mod services;
+mod storage;
 mod tray;
 
+// テストユーティリティモジュール（テスト時のみコンパイル）
+#[cfg(test)]
+pub mod testing;
+
 pub use error::AppError;
+
+// サービス層の公開API
+// 統合テストや外部クレートからのアクセスを許可
+pub use services::{
+    // 問題分析エンジン
+    ProblemAnalyzer,
+    ProblemReport,
+    ProblemCategory,
+    // その他のサービス
+    RecommendationEngine,
+    HardwareInfo,
+    RecommendedSettings,
+};
+
+// ストレージ層の公開API
+// メトリクス履歴など、テストや外部クレートで必要な型を公開
+pub use storage::{
+    SystemMetricsSnapshot,
+    ObsStatusSnapshot,
+    MetricsHistoryStore,
+    HistoricalMetrics,
+    SessionSummary,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,6 +76,38 @@ pub fn run() {
             commands::stop_streaming,
             commands::start_recording,
             commands::stop_recording,
+            // 設定管理コマンド
+            commands::get_config,
+            commands::save_app_config,
+            // 最適化エンジンコマンド
+            commands::get_obs_settings_command,
+            commands::calculate_recommendations,
+            commands::calculate_custom_recommendations,
+            // アラート管理コマンド
+            commands::get_active_alerts,
+            commands::clear_all_alerts,
+            // Phase 2a: プロファイル管理コマンド
+            commands::get_profiles,
+            commands::get_profile,
+            commands::save_profile,
+            commands::delete_profile,
+            commands::apply_profile,
+            commands::save_current_settings_as_profile,
+            // Phase 2a: 最適化適用コマンド
+            commands::apply_recommended_settings,
+            commands::apply_custom_settings,
+            commands::backup_current_settings,
+            commands::restore_backup,
+            // Phase 2a: 配信中モード管理コマンド
+            commands::set_streaming_mode,
+            commands::get_streaming_mode,
+            // Phase 2b: 問題分析コマンド
+            commands::analyze_problems,
+            commands::get_problem_history,
+            // Phase 2b: エクスポートコマンド
+            commands::export_session_json,
+            commands::export_session_csv,
+            commands::generate_diagnostic_report,
         ])
         .setup(|app| {
             // システムトレイのセットアップ

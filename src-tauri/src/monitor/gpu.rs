@@ -136,6 +136,29 @@ fn get_gpu_metrics_by_index(nvml: &Nvml, index: u32) -> Result<Option<GpuMetrics
     }))
 }
 
+/// GPU情報（推奨設定計算用の簡易型）
+///
+/// HardwareInfoで使用されるGPU情報
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuInfo {
+    /// GPU名称
+    pub name: String,
+}
+
+/// GPU情報を非同期で取得（推奨設定計算用）
+///
+/// # Returns
+/// - `Some(GpuInfo)` - GPU情報が取得できた場合
+/// - `None` - GPUが検出されない場合
+pub async fn get_gpu_info() -> Option<GpuInfo> {
+    // 同期関数を呼び出してGpuMetricsを取得
+    let metrics = get_gpu_metrics().ok()??;
+    Some(GpuInfo {
+        name: metrics.name,
+    })
+}
+
 /// 全GPUのリストを取得（マルチGPU対応）（将来使用予定）
 ///
 /// システム内の全NVIDIA GPUの情報を取得します。
@@ -174,6 +197,7 @@ pub fn get_all_gpu_metrics() -> Result<Vec<GpuMetrics>, AppError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

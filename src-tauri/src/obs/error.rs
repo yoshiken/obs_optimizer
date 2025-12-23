@@ -5,7 +5,10 @@
 use crate::error::AppError;
 
 /// OBS関連のエラーコード
+#[allow(dead_code)]
 pub mod error_codes {
+    /// 接続エラー
+    pub const OBS_CONNECTION: &str = "OBS_CONNECTION";
     /// 認証エラー
     pub const OBS_AUTH: &str = "OBS_AUTH";
     /// 通信エラー

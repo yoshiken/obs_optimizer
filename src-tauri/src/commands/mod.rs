@@ -1,5 +1,21 @@
 pub mod system;
 pub mod obs;
+pub mod config;
+pub mod optimizer;
+pub mod alerts;
+pub mod profiles;
+pub mod optimization;
+pub mod streaming_mode;
+pub mod analyzer;
+pub mod export;
 
 pub use system::*;
 pub use obs::*;
+pub use config::*;
+pub use optimizer::*;
+pub use alerts::*;
+pub use profiles::*;
+pub use optimization::*;
+pub use streaming_mode::*;
+pub use analyzer::*;
+pub use export::*;

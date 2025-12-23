@@ -174,6 +174,176 @@ export interface LegacySystemMetrics {
 }
 
 // ========================================
+// 設定関連の型（Rust AppConfigに完全対応）
+// ========================================
+
+/** 配信スタイル（レガシー型） */
+export type StreamStyle = 'talk' | 'game' | 'music' | 'art';
+
+/** 配信プラットフォーム（レガシー型） */
+export type StreamPlatform = 'youtube' | 'twitch' | 'niconico' | 'other';
+
+/** 最適化プリセット */
+export type OptimizationPreset = 'low' | 'medium' | 'high' | 'ultra' | 'custom';
+
+/** OBS接続設定 */
+export interface ConnectionConfig {
+  /** 最後に接続したホスト */
+  lastHost: string;
+  /** 最後に接続したポート */
+  lastPort: number;
+  /** パスワードを保存するか */
+  savePassword: boolean;
+  /** 起動時に自動接続するか */
+  autoConnectOnStartup: boolean;
+  /** 接続タイムアウト（秒） */
+  connectionTimeoutSecs: number;
+}
+
+/** 監視設定 */
+export interface MonitoringConfig {
+  /** メトリクス更新間隔（ミリ秒） */
+  updateIntervalMs: number;
+  /** システムメトリクスを収集するか */
+  collectSystemMetrics: boolean;
+  /** GPUメトリクスを収集するか */
+  collectGpuMetrics: boolean;
+  /** OBSプロセスメトリクスを収集するか */
+  collectProcessMetrics: boolean;
+  /** メトリクス履歴を保存するか */
+  saveMetricsHistory: boolean;
+}
+
+/** アラート設定 */
+export interface AlertConfig {
+  /** アラートを有効にするか */
+  enabled: boolean;
+  /** CPU使用率警告閾値（%） */
+  cpuWarningThreshold: number;
+  /** CPU使用率クリティカル閾値（%） */
+  cpuCriticalThreshold: number;
+  /** GPU使用率警告閾値（%） */
+  gpuWarningThreshold: number;
+  /** GPU使用率クリティカル閾値（%） */
+  gpuCriticalThreshold: number;
+  /** フレームドロップ率警告閾値（%） */
+  frameDropWarningThreshold: number;
+  /** フレームドロップ率クリティカル閾値（%） */
+  frameDropCriticalThreshold: number;
+  /** アラート判定に必要な継続時間（秒） */
+  alertDurationSecs: number;
+  /** アラート音を鳴らすか */
+  playSound: boolean;
+  /** デスクトップ通知を表示するか */
+  showNotification: boolean;
+}
+
+/** 表示設定 */
+export interface DisplayConfig {
+  /** ダークモードを使用するか */
+  darkMode: boolean;
+  /** メトリクスグラフの履歴表示時間（秒） */
+  graphHistoryDurationSecs: number;
+  /** コンパクト表示モード */
+  compactMode: boolean;
+  /** 常に最前面に表示 */
+  alwaysOnTop: boolean;
+}
+
+/** 配信モード設定 */
+export interface StreamingModeConfig {
+  /** 配信プラットフォーム */
+  platform: StreamingPlatform;
+  /** 配信スタイル */
+  style: StreamingStyle;
+  /** ネットワーク速度（Mbps） */
+  networkSpeedMbps: number;
+  /** 画質優先モード */
+  qualityPriority: boolean;
+}
+
+/** アプリケーション設定（Rust AppConfigに対応） */
+export interface AppConfig {
+  /** 設定ファイルバージョン */
+  version: string;
+  /** OBS接続設定 */
+  connection: ConnectionConfig;
+  /** 監視設定 */
+  monitoring: MonitoringConfig;
+  /** アラート設定 */
+  alerts: AlertConfig;
+  /** 表示設定 */
+  display: DisplayConfig;
+  /** 配信モード設定 */
+  streamingMode: StreamingModeConfig;
+}
+
+/** フロントエンド用簡易設定（オンボーディング等で使用） */
+export interface SimpleAppConfig {
+  /** OBS接続設定を保存するか */
+  saveConnection: boolean;
+  /** アプリケーション起動時に自動接続するか */
+  autoConnect: boolean;
+  /** 配信スタイル */
+  streamStyle: StreamStyle | null;
+  /** 配信プラットフォーム */
+  platform: StreamPlatform | null;
+  /** オンボーディング完了フラグ */
+  onboardingCompleted: boolean;
+  /** ストリーミングモード有効 */
+  streamingModeEnabled: boolean;
+}
+
+// ========================================
+// 診断・最適化関連の型
+// ========================================
+
+/** OBS設定項目 */
+export interface ObsSetting {
+  /** 設定項目名（内部キー） */
+  key: string;
+  /** ユーザー向け表示名 */
+  displayName: string;
+  /** 現在の値 */
+  currentValue: string | number | boolean;
+  /** 推奨値 */
+  recommendedValue: string | number | boolean;
+  /** 変更が推奨される理由 */
+  reason: string;
+  /** 重要度（critical=必須、recommended=推奨、optional=任意） */
+  priority: 'critical' | 'recommended' | 'optional';
+}
+
+/** 診断結果 */
+export interface AnalysisResult {
+  /** 全体の品質スコア（0-100） */
+  qualityScore: number;
+  /** 検出された問題の数 */
+  issueCount: number;
+  /** 推奨される設定変更リスト */
+  recommendations: ObsSetting[];
+  /** システム環境情報 */
+  systemInfo: {
+    cpuModel: string;
+    gpuModel: string | null;
+    totalMemoryMb: number;
+    availableMemoryMb: number;
+  };
+  /** 分析日時 */
+  analyzedAt: number;
+}
+
+/** 最適化適用結果 */
+export interface OptimizationResult {
+  /** 適用された設定の数 */
+  appliedCount: number;
+  /** 適用に失敗した設定の数 */
+  failedCount: number;
+  /** エラーメッセージ（失敗時） */
+  errors: string[];
+}
+
+// ========================================
 // コマンド名と戻り値の型マッピング
 // ========================================
 
@@ -197,4 +367,325 @@ export interface Commands {
   stop_streaming: () => Promise<void>;
   start_recording: () => Promise<void>;
   stop_recording: () => Promise<string>;
+
+  // 設定管理
+  get_config: () => Promise<AppConfig>;
+  save_app_config: (config: AppConfig) => Promise<void>;
+
+  // 診断・最適化
+  analyze_settings: () => Promise<AnalysisResult>;
+  apply_optimization: (params: {
+    preset: OptimizationPreset;
+    selectedKeys?: string[];
+  }) => Promise<OptimizationResult>;
+
+  // Phase 1b: OBS設定取得
+  get_obs_settings_command: () => Promise<ObsSettings>;
+
+  // Phase 1b: 推奨設定算出
+  calculate_recommendations: () => Promise<RecommendedSettings>;
+  calculate_custom_recommendations: (params: {
+    platform: StreamingPlatform;
+    style: StreamingStyle;
+    networkSpeedMbps: number;
+  }) => Promise<RecommendedSettings>;
+
+  // Phase 1b: アラート管理
+  get_active_alerts: () => Promise<Alert[]>;
+  clear_all_alerts: () => Promise<void>;
+
+  // Phase 2a: プロファイル管理
+  get_profiles: () => Promise<ProfileSummary[]>;
+  get_profile: (profileId: string) => Promise<SettingsProfile>;
+  save_profile: (profile: SettingsProfile) => Promise<void>;
+  delete_profile: (profileId: string) => Promise<void>;
+  apply_profile: (profileId: string) => Promise<void>;
+  save_current_settings_as_profile: (params: {
+    name: string;
+    description: string;
+    platform: StreamingPlatform;
+    style: StreamingStyle;
+  }) => Promise<string>;
+
+  // Phase 2a: ワンクリック適用・バックアップ
+  apply_recommended_settings: () => Promise<void>;
+  apply_custom_settings: (params: {
+    platform: StreamingPlatform;
+    style: StreamingStyle;
+    networkSpeedMbps: number;
+  }) => Promise<void>;
+  backup_current_settings: () => Promise<string>;
+  restore_backup: (backupId: string) => Promise<void>;
+
+  // Phase 2a: 配信中モード
+  set_streaming_mode: (enabled: boolean) => Promise<void>;
+  get_streaming_mode: () => Promise<boolean>;
+
+  // Phase 2b: 問題分析
+  analyze_problems: (params: AnalyzeProblemsRequest) => Promise<AnalyzeProblemsResponse>;
+  get_problem_history: (limit: number) => Promise<ProblemReport[]>;
+
+  // Phase 2b: セッション履歴
+  get_sessions: () => Promise<SessionSummary[]>;
+  get_metrics_range: (params: {
+    sessionId: string;
+    from: number;
+    to: number;
+  }) => Promise<HistoricalMetrics[]>;
+
+  // Phase 2b: エクスポート
+  export_session_json: (request: ExportSessionRequest) => Promise<ExportJsonResponse>;
+  export_session_csv: (request: ExportSessionRequest) => Promise<ExportCsvResponse>;
+  generate_diagnostic_report: () => Promise<DiagnosticReport>;
+}
+
+// ========================================
+// Phase 1b追加型定義
+// ========================================
+
+export type StreamingPlatform = 'youTube' | 'twitch' | 'nicoNico' | 'other';
+export type StreamingStyle = 'talk' | 'gaming' | 'music' | 'art' | 'other';
+
+export interface ObsSettings {
+  video: VideoSettings;
+  audio: AudioSettings;
+  output: OutputSettings;
+}
+
+export interface VideoSettings {
+  baseWidth: number;
+  baseHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  fpsNumerator: number;
+  fpsDenominator: number;
+}
+
+export interface AudioSettings {
+  sampleRate: number;
+  channels: number;
+}
+
+export interface OutputSettings {
+  encoder: string;
+  bitrateKbps: number;
+  keyframeIntervalSecs: number;
+  preset: string | null;
+  rateControl: string | null;
+}
+
+export type EncoderType = 'nvencH264' | 'quickSync' | 'amdVce' | 'x264' | 'x265' | 'other';
+
+export interface RecommendedSettings {
+  video: RecommendedVideoSettings;
+  audio: RecommendedAudioSettings;
+  output: RecommendedOutputSettings;
+  reasons: string[];
+  overallScore: number;
+}
+
+export interface RecommendedVideoSettings {
+  outputWidth: number;
+  outputHeight: number;
+  fps: number;
+  downscaleFilter: string;
+}
+
+export interface RecommendedAudioSettings {
+  sampleRate: number;
+  bitrateKbps: number;
+}
+
+export interface RecommendedOutputSettings {
+  encoder: string;
+  bitrateKbps: number;
+  keyframeIntervalSecs: number;
+  preset: string | null;
+  rateControl: string;
+}
+
+export type AlertSeverity = 'critical' | 'warning' | 'info' | 'tips';
+export type MetricType = 'cpuUsage' | 'gpuUsage' | 'memoryUsage' | 'frameDropRate' | 'networkBandwidth';
+
+export interface Alert {
+  id: string;
+  metric: MetricType;
+  currentValue: number;
+  threshold: number;
+  severity: AlertSeverity;
+  message: string;
+  timestamp: number;
+  active: boolean;
+}
+
+// ========================================
+// Phase 2a追加型定義
+// ========================================
+
+/** プロファイル設定 */
+export interface ProfileSettings {
+  video: ProfileVideoSettings;
+  audio: ProfileAudioSettings;
+  output: ProfileOutputSettings;
+}
+
+/** プロファイル用ビデオ設定 */
+export interface ProfileVideoSettings {
+  outputWidth: number;
+  outputHeight: number;
+  fps: number;
+  downscaleFilter: string;
+}
+
+/** プロファイル用音声設定 */
+export interface ProfileAudioSettings {
+  sampleRate: number;
+  bitrateKbps: number;
+}
+
+/** プロファイル用出力設定 */
+export interface ProfileOutputSettings {
+  encoder: string;
+  bitrateKbps: number;
+  keyframeIntervalSecs: number;
+  preset: string | null;
+  rateControl: string;
+}
+
+/** 設定プロファイル */
+export interface SettingsProfile {
+  id: string;
+  name: string;
+  description: string;
+  platform: StreamingPlatform;
+  style: StreamingStyle;
+  settings: ProfileSettings;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** プロファイル概要（一覧表示用） */
+export interface ProfileSummary {
+  id: string;
+  name: string;
+  description: string;
+  platform: StreamingPlatform;
+  style: StreamingStyle;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** バックアップ情報 */
+export interface BackupInfo {
+  id: string;
+  createdAt: number;
+  description: string;
+  settings: ProfileSettings;
+}
+
+// ========================================
+// Phase 2b: 問題分析関連の型
+// ========================================
+
+export type ProblemCategory = 'encoding' | 'network' | 'resource' | 'settings';
+
+export interface ProblemReport {
+  id: string;
+  category: ProblemCategory;
+  severity: AlertSeverity;
+  title: string;
+  description: string;
+  suggestedActions: string[];
+  affectedMetric: MetricType;
+  detectedAt: number;
+}
+
+// ========================================
+// Phase 2b: セッション履歴関連の型
+// ========================================
+
+export interface SessionSummary {
+  sessionId: string;
+  startTime: number;
+  endTime: number;
+  avgCpu: number;
+  avgGpu: number;
+  totalDroppedFrames: number;
+  peakBitrate: number;
+  qualityScore: number;
+}
+
+export interface ObsStatusSnapshot {
+  streaming: boolean;
+  recording: boolean;
+  fps: number | null;
+  renderDroppedFrames: number | null;
+  outputDroppedFrames: number | null;
+  streamBitrate: number | null;
+}
+
+export interface HistoricalMetrics {
+  timestamp: number;
+  sessionId: string;
+  system: SystemMetrics;
+  obs: ObsStatusSnapshot;
+}
+
+// ========================================
+// Phase 2b: エクスポート関連の型
+// ========================================
+
+export interface AnalyzeProblemsRequest {
+  encoderType: string;
+  targetBitrate: number;
+}
+
+export interface AnalyzeProblemsResponse {
+  problems: ProblemReport[];
+  overallScore: number;
+}
+
+export interface ExportSessionRequest {
+  sessionId: string;
+}
+
+export interface ExportJsonResponse {
+  data: string;
+  filename: string;
+}
+
+export interface ExportCsvResponse {
+  data: string;
+  filename: string;
+}
+
+export interface SessionInfo {
+  sessionId: string;
+  durationSecs: number;
+  startedAt: number;
+  endedAt: number;
+}
+
+export interface SystemInfo {
+  os: string;
+  cpuModel: string;
+  totalMemoryMb: number;
+  gpuModel: string | null;
+}
+
+export interface PerformanceEvaluation {
+  overallScore: number;
+  cpuScore: number;
+  gpuScore: number;
+  networkScore: number;
+  stabilityScore: number;
+}
+
+export interface DiagnosticReport {
+  generatedAt: number;
+  session: SessionInfo;
+  systemInfo: SystemInfo;
+  problems: ProblemReport[];
+  performance: PerformanceEvaluation;
+  recommendationsSummary: string;
 }

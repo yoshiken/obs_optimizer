@@ -176,7 +176,7 @@ impl ObsStatus {
 }
 
 /// 接続状態の変化を表す型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
 pub enum ConnectionState {

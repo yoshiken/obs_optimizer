@@ -2,7 +2,7 @@
 //
 // OBSの状態変化をフロントエンドに通知するためのイベント発行機能
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::types::{ConnectionState, ObsStatus};
@@ -27,7 +27,7 @@ pub mod event_names {
 }
 
 /// 接続状態変化ペイロード
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionChangedPayload {
     /// 前の状態
@@ -179,6 +179,7 @@ pub fn current_timestamp() -> u64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -196,7 +197,13 @@ mod tests {
     fn test_current_timestamp() {
         let ts = current_timestamp();
         // 現在時刻は2020年以降であるべき
-        assert!(ts > 1577836800); // 2020-01-01 00:00:00 UTC
+        assert!(ts > 1_577_836_800); // 2020-01-01 00:00:00 UTC
+
+        // 2回呼び出して単調増加を確認
+        let ts1 = current_timestamp();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let ts2 = current_timestamp();
+        assert!(ts2 >= ts1);
     }
 
     #[test]
@@ -216,6 +223,116 @@ mod tests {
     }
 
     #[test]
+    fn test_connection_changed_payload_all_states() {
+        // すべての状態遷移をテスト
+        let payloads = vec![
+            ConnectionChangedPayload {
+                previous_state: ConnectionState::Disconnected,
+                current_state: ConnectionState::Connecting,
+                host: Some("localhost".to_string()),
+                port: Some(4455),
+            },
+            ConnectionChangedPayload {
+                previous_state: ConnectionState::Connecting,
+                current_state: ConnectionState::Connected,
+                host: Some("localhost".to_string()),
+                port: Some(4455),
+            },
+            ConnectionChangedPayload {
+                previous_state: ConnectionState::Connected,
+                current_state: ConnectionState::Disconnected,
+                host: None,
+                port: None,
+            },
+            ConnectionChangedPayload {
+                previous_state: ConnectionState::Connected,
+                current_state: ConnectionState::Error,
+                host: None,
+                port: None,
+            },
+        ];
+
+        for payload in payloads {
+            let json = serde_json::to_string(&payload).unwrap();
+            assert!(!json.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_streaming_changed_payload() {
+        let payload = StreamingChangedPayload {
+            is_streaming: true,
+            started_at: Some(1_000_000),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("isStreaming"));
+        assert!(json.contains("startedAt"));
+        assert!(json.contains("1000000"));
+    }
+
+    #[test]
+    fn test_streaming_changed_payload_stopped() {
+        let payload = StreamingChangedPayload {
+            is_streaming: false,
+            started_at: None,
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("isStreaming"));
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn test_recording_changed_payload() {
+        let payload = RecordingChangedPayload {
+            is_recording: true,
+            started_at: Some(2_000_000),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("isRecording"));
+        assert!(json.contains("startedAt"));
+    }
+
+    #[test]
+    fn test_recording_changed_payload_stopped() {
+        let payload = RecordingChangedPayload {
+            is_recording: false,
+            started_at: None,
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn test_scene_changed_payload() {
+        let payload = SceneChangedPayload {
+            previous_scene: Some("Scene 1".to_string()),
+            current_scene: "Scene 2".to_string(),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("previousScene"));
+        assert!(json.contains("currentScene"));
+        assert!(json.contains("Scene 1"));
+        assert!(json.contains("Scene 2"));
+    }
+
+    #[test]
+    fn test_scene_changed_payload_no_previous() {
+        let payload = SceneChangedPayload {
+            previous_scene: None,
+            current_scene: "Initial Scene".to_string(),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("currentScene"));
+        assert!(json.contains("Initial Scene"));
+    }
+
+    #[test]
     fn test_error_payload() {
         let payload = ErrorPayload {
             code: "OBS_CONNECTION".to_string(),
@@ -225,5 +342,61 @@ mod tests {
 
         let json = serde_json::to_string(&payload).unwrap();
         assert!(json.contains("recoverable"));
+        assert!(json.contains("OBS_CONNECTION"));
+        assert!(json.contains("接続エラー"));
+    }
+
+    #[test]
+    fn test_error_payload_not_recoverable() {
+        let payload = ErrorPayload {
+            code: "FATAL_ERROR".to_string(),
+            message: "致命的エラー".to_string(),
+            recoverable: false,
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn test_payload_deserialization() {
+        // シリアライゼーション後にデシリアライゼーションできることを確認
+        let original = ConnectionChangedPayload {
+            previous_state: ConnectionState::Disconnected,
+            current_state: ConnectionState::Connected,
+            host: Some("test.local".to_string()),
+            port: Some(1234),
+        };
+
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: ConnectionChangedPayload = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.host, original.host);
+        assert_eq!(deserialized.port, original.port);
+    }
+
+    #[test]
+    fn test_obs_status_serialization() {
+        let status = ObsStatus {
+            connected: true,
+            streaming: true,
+            recording: false,
+            virtual_cam_active: false,
+            current_scene: Some("Test Scene".to_string()),
+            obs_version: Some("30.0.0".to_string()),
+            websocket_version: Some("5.0.0".to_string()),
+            stream_timecode: None,
+            record_timecode: None,
+            stream_bitrate: Some(6000),
+            record_bitrate: None,
+            fps: Some(60.0),
+            render_dropped_frames: Some(10),
+            output_dropped_frames: Some(5),
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("connected"));
+        assert!(json.contains("streaming"));
+        assert!(json.contains("Test Scene"));
     }
 }

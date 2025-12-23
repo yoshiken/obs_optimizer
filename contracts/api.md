@@ -160,3 +160,149 @@ invoke('apply_optimization', { preset: OptimizationPreset }): Promise<void>
 ```
 
 **Status**: [ ] Rust実装 | [ ] TypeScript型 | [ ] 統合テスト
+
+---
+
+## Configuration
+
+### get_config
+
+```rust
+#[tauri::command]
+async fn get_config() -> Result<AppConfig, AppError>
+```
+
+```typescript
+invoke<AppConfig>('get_config'): Promise<AppConfig>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+### save_app_config
+
+```rust
+#[tauri::command]
+async fn save_app_config(config: AppConfig) -> Result<(), AppError>
+```
+
+```typescript
+invoke('save_app_config', { config: AppConfig }): Promise<void>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+## OBS Settings
+
+### get_obs_settings_command
+
+```rust
+#[tauri::command]
+async fn get_obs_settings_command() -> Result<ObsSettings, AppError>
+```
+
+```typescript
+interface ObsSettings {
+  video: VideoSettings;
+  audio: AudioSettings;
+  output: OutputSettings;
+}
+
+invoke<ObsSettings>('get_obs_settings_command'): Promise<ObsSettings>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+## Recommendations
+
+### calculate_recommendations
+
+```rust
+#[tauri::command]
+async fn calculate_recommendations() -> Result<RecommendedSettings, AppError>
+```
+
+```typescript
+interface RecommendedSettings {
+  video: RecommendedVideoSettings;
+  audio: RecommendedAudioSettings;
+  output: RecommendedOutputSettings;
+  reasons: string[];
+  overallScore: number;
+}
+
+invoke<RecommendedSettings>('calculate_recommendations'): Promise<RecommendedSettings>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+### calculate_custom_recommendations
+
+```rust
+#[tauri::command]
+async fn calculate_custom_recommendations(
+    platform: StreamingPlatform,
+    style: StreamingStyle,
+    network_speed_mbps: f64,
+) -> Result<RecommendedSettings, AppError>
+```
+
+```typescript
+invoke<RecommendedSettings>('calculate_custom_recommendations', {
+  platform: StreamingPlatform,
+  style: StreamingStyle,
+  networkSpeedMbps: number
+}): Promise<RecommendedSettings>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+## Alerts
+
+### get_active_alerts
+
+```rust
+#[tauri::command]
+async fn get_active_alerts() -> Result<Vec<Alert>, AppError>
+```
+
+```typescript
+interface Alert {
+  id: string;
+  metric: MetricType;
+  currentValue: number;
+  threshold: number;
+  severity: AlertSeverity;
+  message: string;
+  timestamp: number;
+  active: boolean;
+}
+
+invoke<Alert[]>('get_active_alerts'): Promise<Alert[]>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト
+
+---
+
+### clear_all_alerts
+
+```rust
+#[tauri::command]
+async fn clear_all_alerts() -> Result<(), AppError>
+```
+
+```typescript
+invoke('clear_all_alerts'): Promise<void>
+```
+
+**Status**: [x] Rust実装 | [x] TypeScript型 | [ ] 統合テスト

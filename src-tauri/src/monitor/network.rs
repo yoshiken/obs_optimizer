@@ -120,6 +120,7 @@ pub fn get_network_interfaces() -> Result<Vec<String>, AppError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::thread::sleep;
