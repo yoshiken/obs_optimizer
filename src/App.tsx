@@ -9,6 +9,8 @@ import { OnboardingWizard } from './features/onboarding/OnboardingWizard';
 import { useObsStore } from './stores/obsStore';
 import { useConfigStore } from './stores/configStore';
 import { useOnboardingStore } from './stores/onboardingStore';
+import { useAlertStore } from './stores/alertStore';
+import { useAnalysisStore } from './stores/analysisStore';
 import './App.css';
 
 /**
@@ -19,18 +21,29 @@ import './App.css';
  * - 未完了の場合はOnboardingWizardを表示
  *
  * メイン画面のレイアウト構成:
- * - ヘッダー: アプリケーション名
- * - 上部: OBS接続設定パネル
- * - 中央左: OBSステータス表示 + 配信・録画コントロール
- * - 中央右: システムメトリクス表示
- * - 下部: シーン選択パネル
+ * - ヘッダー: アプリケーション名 + テーマ切り替え
+ * - タブナビゲーション: ダッシュボード、問題分析、最適化、履歴、エクスポート
+ * - タブコンテンツ: 各タブに対応する機能パネル
  */
+
+type TabId = 'dashboard' | 'analysis' | 'optimization' | 'history' | 'export';
+
+interface Tab {
+  id: TabId;
+  label: string;
+  icon: string;
+  badge?: number;
+}
+
 function App() {
   const { startPolling, subscribeToEvents } = useObsStore();
   const { config, loadConfig } = useConfigStore();
   const { completed: onboardingCompleted } = useOnboardingStore();
+  const { getActiveAlerts } = useAlertStore();
+  const { problems } = useAnalysisStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
 
   // 初回起動時: 設定を読み込んでオンボーディング状態をチェック
   useEffect(() => {
@@ -123,11 +136,41 @@ function App() {
     return <OnboardingWizard />;
   }
 
+  // タブ定義（バッジは動的に設定）
+  const tabs: Tab[] = [
+    {
+      id: 'dashboard',
+      label: 'ダッシュボード',
+      icon: '📊',
+    },
+    {
+      id: 'analysis',
+      label: '問題分析',
+      icon: '🔍',
+      badge: getActiveAlerts().length + problems.length,
+    },
+    {
+      id: 'optimization',
+      label: '最適化',
+      icon: '⚙️',
+    },
+    {
+      id: 'history',
+      label: '履歴',
+      icon: '📈',
+    },
+    {
+      id: 'export',
+      label: 'エクスポート',
+      icon: '📤',
+    },
+  ];
+
   // メイン画面
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* ヘッダー */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -136,34 +179,232 @@ function App() {
             <ThemeToggle />
           </div>
         </div>
+
+        {/* タブナビゲーション */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-1" aria-label="Tabs">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    relative px-4 py-3 text-sm font-medium rounded-t-lg transition-colors
+                    ${
+                      isActive
+                        ? 'bg-gray-100 dark:bg-gray-900 text-blue-600 dark:text-blue-400 border-t-2 border-blue-600 dark:border-blue-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }
+                  `}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* 上部: OBS接続設定パネル */}
-        <section>
-          <ObsConnectionPanel />
-        </section>
-
-        {/* 中央: OBSコントロール と システムメトリクス */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 左カラム: OBSステータスとコントロール */}
-          <div className="space-y-6">
-            <ObsStatusIndicator />
-            <ObsStreamControls />
-          </div>
-
-          {/* 右カラム: システムメトリクス */}
-          <div>
-            <MetricsPanel />
-          </div>
-        </section>
-
-        {/* 下部: シーン選択 */}
-        <section>
-          <ObsSceneSelector />
-        </section>
+      {/* タブコンテンツ */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {activeTab === 'dashboard' && <DashboardTab />}
+        {activeTab === 'analysis' && <AnalysisTab />}
+        {activeTab === 'optimization' && <OptimizationTab />}
+        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'export' && <ExportTab />}
       </div>
     </main>
+  );
+}
+
+// ========================================
+// タブコンテンツコンポーネント
+// ========================================
+
+/**
+ * ダッシュボードタブ - OBS接続、ステータス、メトリクス監視
+ */
+function DashboardTab() {
+  return (
+    <div className="space-y-6">
+      {/* OBS接続設定パネル */}
+      <section>
+        <ObsConnectionPanel />
+      </section>
+
+      {/* OBSコントロール と システムメトリクス */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 左カラム: OBSステータスとコントロール */}
+        <div className="space-y-6">
+          <ObsStatusIndicator />
+          <ObsStreamControls />
+        </div>
+
+        {/* 右カラム: システムメトリクス */}
+        <div>
+          <MetricsPanel />
+        </div>
+      </section>
+
+      {/* シーン選択 */}
+      <section>
+        <ObsSceneSelector />
+      </section>
+    </div>
+  );
+}
+
+/**
+ * 問題分析タブ - パフォーマンス問題の検出と診断レポート
+ */
+function AnalysisTab() {
+  return (
+    <div className="space-y-6">
+      {/* プレースホルダー: ProblemDashboard */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          問題分析ダッシュボード
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">パフォーマンス問題を検出し、解決策を提案します。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: ProblemDashboard コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: CPU/GPU/ネットワークの問題検出、重要度別の問題表示、推奨アクション
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* プレースホルダー: DiagnosticReport */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          診断レポート
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">詳細な診断結果とパフォーマンス評価を表示します。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: DiagnosticReport コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: システム情報、パフォーマンススコア、問題の詳細分析
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 最適化タブ - ワンクリック最適化とプロファイル管理
+ */
+function OptimizationTab() {
+  return (
+    <div className="space-y-6">
+      {/* プレースホルダー: OneClickApply */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          ワンクリック最適化
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">システムに最適な設定を自動で適用します。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: OneClickApply コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: プリセット選択（低/中/高/最高）、推奨設定のプレビュー、適用ボタン
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* プレースホルダー: ProfileList / ProfileEditor */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          プロファイル管理
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">配信スタイル別の設定プロファイルを保存・管理します。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: ProfileList / ProfileEditor コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: プロファイル一覧、新規作成、編集、削除、適用
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 履歴タブ - セッション履歴とメトリクスの時系列表示
+ */
+function HistoryTab() {
+  return (
+    <div className="space-y-6">
+      {/* プレースホルダー: SessionHistory */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          セッション履歴
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">過去の配信セッションのパフォーマンスを確認できます。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: SessionHistory コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: セッション一覧、平均CPU/GPU使用率、フレームドロップ数、品質スコア
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * エクスポートタブ - データのエクスポート機能
+ */
+function ExportTab() {
+  return (
+    <div className="space-y-6">
+      {/* プレースホルダー: ExportPanel */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          データエクスポート
+        </h2>
+        <div className="text-gray-600 dark:text-gray-400">
+          <p className="mb-4">セッションデータや診断レポートをエクスポートします。</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              実装予定: ExportPanel コンポーネント
+            </p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
+              機能: JSON/CSV形式エクスポート、診断レポート生成、セッション選択
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
