@@ -3,11 +3,11 @@
  */
 export function Welcome() {
   return (
-    <div className="text-center py-8">
-      <div className="mb-6">
-        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+    <div className="text-center py-4">
+      <div className="mb-4">
+        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
           <svg
-            className="w-10 h-10 text-blue-600"
+            className="w-8 h-8 text-blue-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -20,15 +20,15 @@ export function Welcome() {
             />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
           OBS配信最適化ツールへようこそ
         </h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           あなたの配信環境に最適な設定を簡単に見つけられます
         </p>
       </div>
 
-      <div className="max-w-2xl mx-auto text-left space-y-4">
+      <div className="max-w-2xl mx-auto text-left space-y-3">
         <FeatureItem
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export function Welcome() {
         />
       </div>
 
-      <div className="mt-8 text-sm text-gray-500">
+      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
         所要時間: 約3分
       </div>
     </div>
@@ -92,11 +92,11 @@ interface FeatureItemProps {
 
 function FeatureItem({ icon, title, description }: FeatureItemProps) {
   return (
-    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+    <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
       <div className="flex-shrink-0 text-blue-600">{icon}</div>
       <div>
-        <h3 className="font-semibold text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-600">{description}</p>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{title}</h3>
+        <p className="text-xs text-gray-600 dark:text-gray-400">{description}</p>
       </div>
     </div>
   );

@@ -88,10 +88,10 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4 overflow-hidden">
+      <div className="max-w-3xl w-full bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300 max-h-[calc(100vh-2rem)] flex flex-col">
         {/* プログレスバー */}
-        <div className="px-8 pt-8 pb-4 bg-gradient-to-r from-blue-500 to-indigo-600">
+        <div className="px-6 pt-6 pb-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((step) => (
               <div key={step} className="flex-1 flex items-center">
@@ -140,12 +140,12 @@ export function OnboardingWizard() {
         </div>
 
         {/* ステップコンテンツ */}
-        <div className="px-8 py-8 min-h-[500px] bg-white">
+        <div className="px-6 py-6 flex-1 overflow-y-auto bg-white">
           <div className="animate-fade-in">{renderStep()}</div>
         </div>
 
         {/* ナビゲーションボタン */}
-        <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
           <button
             onClick={prevStep}
             disabled={currentStep === 1}
