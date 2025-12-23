@@ -8,6 +8,8 @@ pub mod optimization;
 pub mod streaming_mode;
 pub mod analyzer;
 pub mod export;
+pub mod history;
+pub mod utils;
 
 pub use system::*;
 pub use obs::*;
@@ -19,3 +21,4 @@ pub use optimization::*;
 pub use streaming_mode::*;
 pub use analyzer::*;
 pub use export::*;
+pub use history::*;

@@ -4,24 +4,39 @@
 
 use crate::error::AppError;
 use crate::obs::{get_obs_client, get_obs_settings};
-use crate::services::{get_streaming_mode_service, RecommendationEngine, HardwareInfo};
+use crate::services::{get_streaming_mode_service, RecommendationEngine};
 use crate::storage::config::{load_config, StreamingPlatform, StreamingStyle};
-use crate::storage::{SettingsProfile, ProfileSettings, save_profile as storage_save_profile};
-use crate::monitor::{get_cpu_core_count, get_memory_info};
-use crate::monitor::gpu::get_gpu_info;
+use crate::storage::{
+    SettingsProfile, ProfileSettings, save_profile as storage_save_profile,
+    get_profile, get_profiles,
+};
+use crate::commands::utils::get_hardware_info;
 use serde::{Deserialize, Serialize};
 
-/// 設定バックアップ（将来のバックアップ機能で使用予定）
-#[allow(dead_code)]
+/// 設定バックアップ情報（TypeScriptのBackupInfoに対応）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SettingsBackup {
+pub struct BackupInfo {
     /// バックアップID
     pub id: String,
-    /// バックアップ日時
-    pub timestamp: i64,
+    /// 作成日時（Unixタイムスタンプ）
+    pub created_at: i64,
+    /// 説明
+    pub description: String,
     /// バックアップした設定
-    pub settings: crate::obs::ObsSettings,
+    pub settings: ProfileSettings,
+}
+
+/// 最適化結果（TypeScriptのOptimizationResultに対応）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptimizationResult {
+    /// 適用された設定の数
+    pub applied_count: usize,
+    /// 適用に失敗した設定の数
+    pub failed_count: usize,
+    /// エラーメッセージ（失敗時）
+    pub errors: Vec<String>,
 }
 
 /// 推奨設定を一括適用
@@ -109,6 +124,90 @@ pub async fn apply_custom_settings(
     Ok(())
 }
 
+/// プリセットに基づいて最適化を適用
+///
+/// # Arguments
+/// * `preset` - 最適化プリセット（"low", "medium", "high", "ultra", "custom"）
+/// * `selected_keys` - 適用する設定項目のキーリスト（省略時は全て適用）
+///
+/// # Returns
+/// 最適化結果（適用成功数、失敗数、エラーメッセージ）
+#[tauri::command]
+pub async fn apply_optimization(
+    preset: String,
+    selected_keys: Option<Vec<String>>,
+) -> Result<OptimizationResult, AppError> {
+    // プリセットの検証
+    let valid_presets = ["low", "medium", "high", "ultra", "custom"];
+    if !valid_presets.contains(&preset.as_str()) {
+        return Err(AppError::config_error(
+            &format!("無効なプリセット: {}。有効な値は low, medium, high, ultra, custom です", preset)
+        ));
+    }
+
+    // 配信中の場合は適用を拒否
+    let streaming_service = get_streaming_mode_service();
+    if streaming_service.is_streaming_mode().await {
+        return Err(AppError::obs_state(
+            "配信中のため設定を変更できません。配信を停止してから再度お試しください。"
+        ));
+    }
+
+    // OBS接続確認
+    let client = get_obs_client();
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    // 現在の設定をバックアップ
+    backup_current_settings().await?;
+
+    // TODO: Phase 2bでOBS設定適用APIを実装予定
+    // 現在はダミーのレスポンスを返す
+    let _ = preset;
+    let _ = selected_keys;
+
+    Ok(OptimizationResult {
+        applied_count: 0,
+        failed_count: 0,
+        errors: vec![],
+    })
+}
+
+/// バックアップ一覧を取得
+///
+/// # Returns
+/// バックアップ情報のリスト
+#[tauri::command]
+pub async fn get_backups() -> Result<Vec<BackupInfo>, AppError> {
+    // プロファイル一覧を取得
+    let profiles = get_profiles()?;
+
+    // "バックアップ"で始まるプロファイルのみをフィルタリング
+    let backups: Vec<BackupInfo> = profiles
+        .into_iter()
+        .filter(|p| p.name.starts_with("バックアップ"))
+        .map(|summary| {
+            // 完全なプロファイルを読み込み
+            match get_profile(&summary.id) {
+                Ok(profile) => Some(BackupInfo {
+                    id: profile.id,
+                    created_at: profile.created_at,
+                    description: profile.description,
+                    settings: profile.settings,
+                }),
+                Err(e) => {
+                    eprintln!("[WARNING] バックアップの読み込みに失敗: {}", e);
+                    None
+                }
+            }
+        })
+        .flatten()
+        .collect();
+
+    Ok(backups)
+}
+
 /// 現在の設定をバックアップ
 #[tauri::command]
 pub async fn backup_current_settings() -> Result<String, AppError> {
@@ -182,19 +281,4 @@ pub async fn restore_backup(_backup_id: String) -> Result<(), AppError> {
     // _backup_idからプロファイルを読み込み、設定を復元
 
     Ok(())
-}
-
-/// ハードウェア情報を取得（内部関数）
-async fn get_hardware_info() -> HardwareInfo {
-    let cpu_cores = get_cpu_core_count().unwrap_or(4);
-    let (_, total_memory) = get_memory_info().unwrap_or((0, 8_000_000_000)); // デフォルト8GB
-    let total_memory_gb = total_memory as f64 / 1_000_000_000.0;
-    let gpu_info = get_gpu_info().await;
-
-    HardwareInfo {
-        cpu_name: "CPU".to_string(), // TODO: 実際のCPU名を取得
-        cpu_cores,
-        total_memory_gb,
-        gpu: gpu_info,
-    }
 }

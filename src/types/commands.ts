@@ -314,6 +314,18 @@ export interface ObsSetting {
   priority: 'critical' | 'recommended' | 'optional';
 }
 
+/** システム環境情報 */
+export interface SystemInfo {
+  /** CPUモデル名 */
+  cpuModel: string;
+  /** GPUモデル名 */
+  gpuModel: string | null;
+  /** 総メモリ容量（MB） */
+  totalMemoryMb: number;
+  /** 利用可能メモリ（MB） */
+  availableMemoryMb: number;
+}
+
 /** 診断結果 */
 export interface AnalysisResult {
   /** 全体の品質スコア（0-100） */
@@ -323,12 +335,7 @@ export interface AnalysisResult {
   /** 推奨される設定変更リスト */
   recommendations: ObsSetting[];
   /** システム環境情報 */
-  systemInfo: {
-    cpuModel: string;
-    gpuModel: string | null;
-    totalMemoryMb: number;
-    availableMemoryMb: number;
-  };
+  systemInfo: SystemInfo;
   /** 分析日時 */
   analyzedAt: number;
 }
@@ -416,6 +423,7 @@ export interface Commands {
   }) => Promise<void>;
   backup_current_settings: () => Promise<string>;
   restore_backup: (backupId: string) => Promise<void>;
+  get_backups: () => Promise<BackupInfo[]>;
 
   // Phase 2a: 配信中モード
   set_streaming_mode: (enabled: boolean) => Promise<void>;

@@ -98,16 +98,22 @@ pub fn run() {
             commands::apply_custom_settings,
             commands::backup_current_settings,
             commands::restore_backup,
+            commands::get_backups,
+            commands::apply_optimization,
             // Phase 2a: 配信中モード管理コマンド
             commands::set_streaming_mode,
             commands::get_streaming_mode,
             // Phase 2b: 問題分析コマンド
             commands::analyze_problems,
+            commands::analyze_settings,
             commands::get_problem_history,
             // Phase 2b: エクスポートコマンド
             commands::export_session_json,
             commands::export_session_csv,
             commands::generate_diagnostic_report,
+            // Phase 2b: セッション履歴コマンド
+            commands::get_sessions,
+            commands::get_metrics_range,
         ])
         .setup(|app| {
             // システムトレイのセットアップ

@@ -5,7 +5,12 @@
 use crate::error::AppError;
 use crate::services::analyzer::{ProblemAnalyzer, ProblemReport};
 use crate::services::system::system_monitor_service;
+use crate::services::optimizer::RecommendationEngine;
 use crate::storage::metrics_history::SystemMetricsSnapshot;
+use crate::monitor::get_memory_info;
+use crate::obs::get_obs_settings;
+use crate::storage::config::load_config;
+use crate::commands::utils::get_hardware_info;
 use serde::{Deserialize, Serialize};
 
 /// 問題分析リクエスト
@@ -26,6 +31,54 @@ pub struct AnalyzeProblemsResponse {
     pub problems: Vec<ProblemReport>,
     /// 総合評価スコア（0-100）
     pub overall_score: f64,
+}
+
+/// OBS設定分析結果（analyze_settings用）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisResult {
+    /// 品質スコア（0-100）
+    pub quality_score: u8,
+    /// 検出された問題の数
+    pub issue_count: usize,
+    /// 推奨設定変更リスト
+    pub recommendations: Vec<ObsSetting>,
+    /// システム環境情報
+    pub system_info: SystemInfo,
+    /// 分析日時（Unixタイムスタンプ）
+    pub analyzed_at: i64,
+}
+
+/// OBS設定項目
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObsSetting {
+    /// 設定項目キー
+    pub key: String,
+    /// 表示名
+    pub display_name: String,
+    /// 現在の値
+    pub current_value: serde_json::Value,
+    /// 推奨値
+    pub recommended_value: serde_json::Value,
+    /// 変更理由
+    pub reason: String,
+    /// 優先度
+    pub priority: String, // "critical" | "recommended" | "optional"
+}
+
+/// システム環境情報
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    /// CPUモデル名
+    pub cpu_model: String,
+    /// GPUモデル名
+    pub gpu_model: Option<String>,
+    /// 総メモリ容量（MB）
+    pub total_memory_mb: u64,
+    /// 利用可能メモリ（MB）
+    pub available_memory_mb: u64,
 }
 
 /// 現在の問題を分析
@@ -80,6 +133,123 @@ pub async fn analyze_problems(request: AnalyzeProblemsRequest) -> Result<Analyze
     })
 }
 
+/// OBS設定を分析して推奨事項を返す
+///
+/// # Returns
+/// 分析結果（品質スコア、推奨設定、システム情報）
+#[tauri::command]
+pub async fn analyze_settings() -> Result<AnalysisResult, AppError> {
+    // 現在のOBS設定を取得
+    let obs_settings = get_obs_settings().await?;
+
+    // システム情報を取得
+    let hardware_info = get_hardware_info().await;
+
+    // アプリケーション設定を取得
+    let app_config = load_config()?;
+
+    // 推奨設定を計算
+    let recommendations = RecommendationEngine::calculate_recommendations(
+        &hardware_info,
+        &obs_settings,
+        app_config.streaming_mode.platform,
+        app_config.streaming_mode.style,
+        app_config.streaming_mode.network_speed_mbps,
+    );
+
+    // 推奨事項リストを構築
+    let mut recommendation_list = Vec::new();
+
+    // 解像度の推奨
+    if obs_settings.video.output_width != recommendations.video.output_width
+        || obs_settings.video.output_height != recommendations.video.output_height {
+        recommendation_list.push(ObsSetting {
+            key: "video.resolution".to_string(),
+            display_name: "出力解像度".to_string(),
+            current_value: serde_json::json!(format!(
+                "{}x{}",
+                obs_settings.video.output_width,
+                obs_settings.video.output_height
+            )),
+            recommended_value: serde_json::json!(format!(
+                "{}x{}",
+                recommendations.video.output_width,
+                recommendations.video.output_height
+            )),
+            reason: "現在の設定はシステム性能に最適化されていません".to_string(),
+            priority: "recommended".to_string(),
+        });
+    }
+
+    // FPSの推奨
+    let current_fps = obs_settings.video.fps() as u32;
+    if current_fps != recommendations.video.fps {
+        recommendation_list.push(ObsSetting {
+            key: "video.fps".to_string(),
+            display_name: "FPS".to_string(),
+            current_value: serde_json::json!(current_fps),
+            recommended_value: serde_json::json!(recommendations.video.fps),
+            reason: "配信スタイルに適したFPSに変更することを推奨します".to_string(),
+            priority: if current_fps > recommendations.video.fps { "recommended" } else { "optional" }.to_string(),
+        });
+    }
+
+    // ビットレートの推奨
+    let bitrate_diff = (obs_settings.output.bitrate_kbps as i32
+        - recommendations.output.bitrate_kbps as i32).abs();
+    if bitrate_diff > 500 {
+        recommendation_list.push(ObsSetting {
+            key: "output.bitrate".to_string(),
+            display_name: "ビットレート".to_string(),
+            current_value: serde_json::json!(obs_settings.output.bitrate_kbps),
+            recommended_value: serde_json::json!(recommendations.output.bitrate_kbps),
+            reason: format!(
+                "ネットワーク速度とプラットフォームに最適化されたビットレートは{}kbpsです",
+                recommendations.output.bitrate_kbps
+            ),
+            priority: if bitrate_diff > 2000 { "critical" } else { "recommended" }.to_string(),
+        });
+    }
+
+    // エンコーダーの推奨
+    if obs_settings.output.encoder != recommendations.output.encoder {
+        let priority = if !obs_settings.output.is_hardware_encoder() && hardware_info.gpu.is_some() {
+            "critical"
+        } else {
+            "recommended"
+        };
+
+        recommendation_list.push(ObsSetting {
+            key: "output.encoder".to_string(),
+            display_name: "エンコーダー".to_string(),
+            current_value: serde_json::json!(obs_settings.output.encoder),
+            recommended_value: serde_json::json!(recommendations.output.encoder),
+            reason: "ハードウェアエンコーダーの使用を推奨します（CPU負荷軽減のため）".to_string(),
+            priority: priority.to_string(),
+        });
+    }
+
+    // システム情報を構築
+    let (memory_used, memory_total) = get_memory_info().unwrap_or((0, 8_000_000_000));
+    let system_info = SystemInfo {
+        cpu_model: hardware_info.cpu_name.clone(),
+        gpu_model: hardware_info.gpu.as_ref().map(|g| g.name.clone()),
+        total_memory_mb: memory_total / 1_048_576,
+        available_memory_mb: (memory_total - memory_used) / 1_048_576,
+    };
+
+    // 品質スコアを取得
+    let quality_score = recommendations.overall_score;
+
+    Ok(AnalysisResult {
+        quality_score,
+        issue_count: recommendation_list.len(),
+        recommendations: recommendation_list,
+        system_info,
+        analyzed_at: chrono::Utc::now().timestamp(),
+    })
+}
+
 /// 問題履歴を取得
 ///
 /// 過去に検出された問題の履歴を取得する
@@ -119,6 +289,7 @@ fn calculate_overall_score(problems: &[ProblemReport]) -> f64 {
 
     score.clamp(0.0, 100.0)
 }
+
 
 #[cfg(test)]
 mod tests {
