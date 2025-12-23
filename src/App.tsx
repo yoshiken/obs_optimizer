@@ -6,6 +6,11 @@ import { ObsSceneSelector } from './features/obs/ObsSceneSelector';
 import { MetricsPanel } from './features/monitor';
 import { ThemeToggle } from './components/ThemeToggle';
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard';
+import { ProblemDashboard } from './features/analysis/ProblemDashboard';
+import { OneClickApply } from './features/optimization/OneClickApply';
+import { ProfileList } from './features/profiles/ProfileList';
+import { SessionHistory } from './features/history/SessionHistory';
+import { ExportPanel } from './features/export/ExportPanel';
 import { useObsStore } from './stores/obsStore';
 import { useConfigStore } from './stores/configStore';
 import { useOnboardingStore } from './stores/onboardingStore';
@@ -270,41 +275,7 @@ function DashboardTab() {
 function AnalysisTab() {
   return (
     <div className="space-y-6">
-      {/* プレースホルダー: ProblemDashboard */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          問題分析ダッシュボード
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">パフォーマンス問題を検出し、解決策を提案します。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: ProblemDashboard コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: CPU/GPU/ネットワークの問題検出、重要度別の問題表示、推奨アクション
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* プレースホルダー: DiagnosticReport */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          診断レポート
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">詳細な診断結果とパフォーマンス評価を表示します。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: DiagnosticReport コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: システム情報、パフォーマンススコア、問題の詳細分析
-            </p>
-          </div>
-        </div>
-      </div>
+      <ProblemDashboard />
     </div>
   );
 }
@@ -315,41 +286,8 @@ function AnalysisTab() {
 function OptimizationTab() {
   return (
     <div className="space-y-6">
-      {/* プレースホルダー: OneClickApply */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          ワンクリック最適化
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">システムに最適な設定を自動で適用します。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: OneClickApply コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: プリセット選択（低/中/高/最高）、推奨設定のプレビュー、適用ボタン
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* プレースホルダー: ProfileList / ProfileEditor */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          プロファイル管理
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">配信スタイル別の設定プロファイルを保存・管理します。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: ProfileList / ProfileEditor コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: プロファイル一覧、新規作成、編集、削除、適用
-            </p>
-          </div>
-        </div>
-      </div>
+      <OneClickApply />
+      <ProfileList />
     </div>
   );
 }
@@ -360,23 +298,7 @@ function OptimizationTab() {
 function HistoryTab() {
   return (
     <div className="space-y-6">
-      {/* プレースホルダー: SessionHistory */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          セッション履歴
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">過去の配信セッションのパフォーマンスを確認できます。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: SessionHistory コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: セッション一覧、平均CPU/GPU使用率、フレームドロップ数、品質スコア
-            </p>
-          </div>
-        </div>
-      </div>
+      <SessionHistory />
     </div>
   );
 }
@@ -387,23 +309,7 @@ function HistoryTab() {
 function ExportTab() {
   return (
     <div className="space-y-6">
-      {/* プレースホルダー: ExportPanel */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          データエクスポート
-        </h2>
-        <div className="text-gray-600 dark:text-gray-400">
-          <p className="mb-4">セッションデータや診断レポートをエクスポートします。</p>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              実装予定: ExportPanel コンポーネント
-            </p>
-            <p className="text-sm text-blue-700 dark:text-blue-400 mt-2">
-              機能: JSON/CSV形式エクスポート、診断レポート生成、セッション選択
-            </p>
-          </div>
-        </div>
-      </div>
+      <ExportPanel />
     </div>
   );
 }
