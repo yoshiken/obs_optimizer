@@ -45,7 +45,7 @@ export function MemoryMetricsCard({
   return (
     <MetricCard title="メモリ" severity={severity}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-        <span>{formatPercent(metrics.usagePercent)}</span>
+        <span>{formatPercent(metrics.usagePercent, 0)}</span>
       </div>
 
       {/* 使用率バー */}

@@ -46,7 +46,7 @@ export function CpuMetricsCard({
   return (
     <MetricCard title="CPU" severity={severity}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-        <span>{formatPercent(metrics.usagePercent)}</span>
+        <span>{formatPercent(metrics.usagePercent, 0)}</span>
         <span style={{ fontSize: '14px', color: 'var(--text-secondary, #6b7280)' }}>
           {metrics.coreCount}コア
         </span>

@@ -67,7 +67,7 @@ export function GpuMetricsCard({
   return (
     <MetricCard title="GPU" severity={gpuSeverity}>
       <div>
-        <span>{formatPercent(metrics.usagePercent)}</span>
+        <span>{formatPercent(metrics.usagePercent, 0)}</span>
       </div>
 
       {/* GPU名称 */}
@@ -98,7 +98,7 @@ export function GpuMetricsCard({
               marginBottom: '4px',
             }}>
               <span style={{ color: 'var(--text-muted, #9ca3af)' }}>エンコーダー</span>
-              <span>{formatPercent(metrics.encoderUsage)}</span>
+              <span>{formatPercent(metrics.encoderUsage, 0)}</span>
             </div>
             <div style={barStyle}>
               <div style={createBarFill(metrics.encoderUsage, getSeverityColor(encoderSeverity))} />
