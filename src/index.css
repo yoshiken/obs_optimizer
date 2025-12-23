@@ -1,0 +1,266 @@
+/* Tailwind CSSディレクティブ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS変数によるテーマカラー管理 */
+:root {
+  /* ライトモードのカラー */
+  --color-bg-primary: 249 250 251; /* gray-50 */
+  --color-bg-secondary: 255 255 255; /* white */
+  --color-bg-tertiary: 243 244 246; /* gray-100 */
+
+  --color-text-primary: 17 24 39; /* gray-900 */
+  --color-text-secondary: 75 85 99; /* gray-600 */
+  --color-text-tertiary: 107 114 128; /* gray-500 */
+
+  --color-border: 229 231 235; /* gray-200 */
+  --color-border-hover: 209 213 219; /* gray-300 */
+
+  --color-accent: 59 130 246; /* blue-500 */
+  --color-accent-hover: 37 99 235; /* blue-600 */
+
+  /* フォント設定
+     日本語対応フォントスタック（Windows/Mac両対応）:
+     - Inter: 英数字用の現代的なサンセリフ
+     - Noto Sans JP: Googleの日本語フォント（クロスプラットフォーム）
+     - Hiragino Sans / Hiragino Kaku Gothic ProN: macOS標準の高品質日本語フォント
+     - Yu Gothic UI: Windows 10/11の高品質日本語UI フォント
+     - Meiryo: Windows 7/8フォールバック
+     - sans-serif: システムデフォルト
+  */
+  font-family: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+    'Yu Gothic UI', 'Meiryo', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* アンチエイリアス: 日本語フォントの可読性向上 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ダークモードのカラー */
+.dark {
+  --color-bg-primary: 17 24 39; /* gray-900 */
+  --color-bg-secondary: 31 41 55; /* gray-800 */
+  --color-bg-tertiary: 55 65 81; /* gray-700 */
+
+  --color-text-primary: 243 244 246; /* gray-100 */
+  --color-text-secondary: 209 213 219; /* gray-300 */
+  --color-text-tertiary: 156 163 175; /* gray-400 */
+
+  --color-border: 55 65 81; /* gray-700 */
+  --color-border-hover: 75 85 99; /* gray-600 */
+
+  --color-accent: 96 165 250; /* blue-400 */
+  --color-accent-hover: 59 130 246; /* blue-500 */
+}
+
+/* ベーススタイル */
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: rgb(var(--color-bg-tertiary));
+  color: rgb(var(--color-text-primary));
+}
+
+/* スムーズなテーマ切り替えアニメーション */
+body,
+body * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* フォーカス時のアウトライン */
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+/* スクロールバーのスタイル（WebKit） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-bg-tertiary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-border-hover));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-text-tertiary));
+}
+
+/* ダークモード用のスクロールバー */
+.dark ::-webkit-scrollbar-track {
+  background: rgb(var(--color-bg-secondary));
+}
+
+/* ==================================================
+   マイクロインタラクション & アクセシビリティ
+   ================================================== */
+
+/* アクセシビリティ: prefers-reduced-motion 対応 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* カスタムアニメーション: 数値変化時のパルス効果 */
+@keyframes metric-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* カスタムアニメーション: フェードイン */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* カスタムアニメーション: スライドイン（左から） */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* カスタムアニメーション: スライドイン（右から） */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ユーティリティクラス: メトリクス更新アニメーション */
+.metric-update {
+  animation: metric-pulse 0.3s ease-out;
+}
+
+/* ユーティリティクラス: フェードイン */
+.fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* ユーティリティクラス: スライドイン */
+.slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+.slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* ボタンの標準インタラクション */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ボタンホバー時の微細なスケール変化 */
+button:not(:disabled):hover,
+[role="button"]:not([aria-disabled="true"]):hover {
+  transform: scale(1.02);
+}
+
+/* ボタンアクティブ時の押し込み効果 */
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.98);
+}
+
+/* カードコンポーネントの標準トランジション */
+.card-interactive {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card-interactive:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+/* ローディングスピナーのアニメーション最適化 */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ==================================================
+   フォントユーティリティ
+   ================================================== */
+
+/* モノスペースフォント: 数値表示用（メトリクス、CPU/GPU使用率、FPS、ビットレートなど）
+   数字を等幅で表示し、桁揃えを改善 */
+.font-mono-metric {
+  font-family: 'JetBrains Mono', 'Source Code Pro', 'Noto Sans Mono CJK JP',
+               'Consolas', 'Monaco', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  /* tabular-nums: 数字を等幅にして桁揃えを改善 */
+}
+
+/* メトリクス値の標準スタイル */
+.metric-value {
+  font-family: 'JetBrains Mono', 'Source Code Pro', 'Noto Sans Mono CJK JP',
+               'Consolas', 'Monaco', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em; /* 数字の間隔を微調整 */
+}
+
+/* 日本語フォントウェイトの最適化
+   日本語フォントは通常400と700が推奨（多くのフォントで300/500/600が不明瞭） */
+.font-ja-normal {
+  font-weight: 400;
+}
+
+.font-ja-medium {
+  font-weight: 500;
+}
+
+.font-ja-bold {
+  font-weight: 700;
+}

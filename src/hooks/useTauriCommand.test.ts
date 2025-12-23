@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useTauriCommand } from './useTauriCommand';
 import { invoke } from '@tauri-apps/api/core';
 import type { SystemMetrics } from '../types/commands';
-import { mockSystemMetrics, setupInvokeMock, setupInvokeErrorMock } from '../tests/mocks/tauriMocks';
+import { mockSystemMetrics, setupInvokeErrorMock, setupInvokeMock } from '../tests/mocks/tauriMocks';
 
 vi.mock('@tauri-apps/api/core');
 
@@ -55,6 +55,7 @@ describe('useTauriCommand', () => {
           host: string;
           port: number;
         };
+        [key: string]: unknown;
       }
 
       const { result } = renderHook(() =>

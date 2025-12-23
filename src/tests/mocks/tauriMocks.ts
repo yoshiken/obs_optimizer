@@ -1,10 +1,14 @@
-import { vi } from 'vitest';
 import type {
+  ObsProcessMetrics,
   ObsStatus,
   SystemMetrics,
-  ObsProcessMetrics,
-  ObsConnectionParams,
 } from '../../types/commands';
+
+// Tauriコマンド用のモック型定義
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InvokeMockType = { mockImplementation: (fn: (...args: any[]) => any) => void; mockRejectedValue: (error: Error) => void };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ListenMockType = { mockImplementation: (fn: (...args: any[]) => any) => void };
 
 /**
  * Tauriコマンドのモックデータとヘルパー関数
@@ -73,33 +77,33 @@ export const mockSceneList = ['シーン1', 'シーン2', 'ゲームシーン', 
 /**
  * Tauri invokeコマンドのモックを設定するヘルパー関数
  */
-export function setupInvokeMock(invoke: ReturnType<typeof vi.fn>) {
-  invoke.mockImplementation(async (command: string, args?: unknown) => {
+export function setupInvokeMock(invoke: InvokeMockType) {
+  invoke.mockImplementation((command: string): Promise<unknown> => {
     switch (command) {
       case 'get_obs_status':
-        return mockObsStatus;
+        return Promise.resolve(mockObsStatus);
       case 'get_system_metrics':
-        return mockSystemMetrics;
+        return Promise.resolve(mockSystemMetrics);
       case 'get_process_metrics':
-        return mockObsProcessMetrics;
+        return Promise.resolve(mockObsProcessMetrics);
       case 'get_scene_list':
-        return mockSceneList;
+        return Promise.resolve(mockSceneList);
       case 'connect_obs':
-        return undefined;
+        return Promise.resolve(undefined);
       case 'disconnect_obs':
-        return undefined;
+        return Promise.resolve(undefined);
       case 'start_streaming':
-        return undefined;
+        return Promise.resolve(undefined);
       case 'stop_streaming':
-        return undefined;
+        return Promise.resolve(undefined);
       case 'start_recording':
-        return undefined;
+        return Promise.resolve(undefined);
       case 'stop_recording':
-        return 'C:\\recordings\\video.mp4';
+        return Promise.resolve('C:\\recordings\\video.mp4');
       case 'set_current_scene':
-        return undefined;
+        return Promise.resolve(undefined);
       default:
-        throw new Error(`Unknown command: ${command}`);
+        return Promise.reject(new Error(`Unknown command: ${command}`));
     }
   });
 }
@@ -107,18 +111,18 @@ export function setupInvokeMock(invoke: ReturnType<typeof vi.fn>) {
 /**
  * Tauri listenイベントのモックを設定するヘルパー関数
  */
-export function setupListenMock(listen: ReturnType<typeof vi.fn>) {
-  listen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+export function setupListenMock(listen: ListenMockType) {
+  listen.mockImplementation((): Promise<() => void> => {
     // アンリスナー関数を返す
-    return () => {
+    return Promise.resolve(() => {
       // クリーンアップ処理
-    };
+    });
   });
 }
 
 /**
  * エラーを投げるinvokeモックを設定
  */
-export function setupInvokeErrorMock(invoke: ReturnType<typeof vi.fn>, errorMessage = 'Mock error') {
+export function setupInvokeErrorMock(invoke: InvokeMockType, errorMessage = 'Mock error') {
   invoke.mockRejectedValue(new Error(errorMessage));
 }

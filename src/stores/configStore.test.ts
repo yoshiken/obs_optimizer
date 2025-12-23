@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConfigStore } from './configStore';
 import { invoke } from '@tauri-apps/api/core';
 import type { SimpleAppConfig } from '../types/commands';
@@ -11,8 +11,8 @@ const mockInvoke = vi.mocked(invoke);
 const mockConfig: SimpleAppConfig = {
   saveConnection: true,
   autoConnect: true,
-  streamStyle: 'gaming',
-  platform: 'youTube',
+  streamStyle: 'game',
+  platform: 'youtube',
   onboardingCompleted: true,
   streamingModeEnabled: false,
 };
@@ -219,8 +219,8 @@ describe('configStore', () => {
       expect(state.config?.saveConnection).toBe(false);
       expect(state.config?.autoConnect).toBe(false);
       // 他のフィールドは変更されない
-      expect(state.config?.streamStyle).toBe('gaming');
-      expect(state.config?.platform).toBe('youTube');
+      expect(state.config?.streamStyle).toBe('game');
+      expect(state.config?.platform).toBe('youtube');
 
       expect(mockInvoke).toHaveBeenCalledWith('save_config', {
         config: {
@@ -281,11 +281,11 @@ describe('configStore', () => {
       mockInvoke.mockResolvedValue(undefined);
 
       const { updateConfig } = useConfigStore.getState();
-      await updateConfig({ streamStyle: 'talk', platform: 'twitch' });
+      await updateConfig({ streamStyle: 'talk', platform: 'youtube' });
 
       const state = useConfigStore.getState();
       expect(state.config?.streamStyle).toBe('talk');
-      expect(state.config?.platform).toBe('twitch');
+      expect(state.config?.platform).toBe('youtube');
     });
   });
 
@@ -371,8 +371,8 @@ describe('configStore', () => {
       expect(useConfigStore.getState().config?.saveConnection).toBe(true);
 
       // 3回目の更新
-      await updateConfig({ streamStyle: 'gaming' });
-      expect(useConfigStore.getState().config?.streamStyle).toBe('gaming');
+      await updateConfig({ streamStyle: 'game' });
+      expect(useConfigStore.getState().config?.streamStyle).toBe('game');
       expect(useConfigStore.getState().config?.saveConnection).toBe(true);
       expect(useConfigStore.getState().config?.autoConnect).toBe(true);
     });
@@ -392,16 +392,16 @@ describe('configStore', () => {
       mockInvoke.mockResolvedValueOnce(undefined);
       await updateConfig({
         onboardingCompleted: true,
-        streamStyle: 'gaming',
-        platform: 'youTube',
+        streamStyle: 'game',
+        platform: 'youtube',
         saveConnection: true,
         autoConnect: true,
       });
 
       const state = useConfigStore.getState();
       expect(state.config?.onboardingCompleted).toBe(true);
-      expect(state.config?.streamStyle).toBe('gaming');
-      expect(state.config?.platform).toBe('youTube');
+      expect(state.config?.streamStyle).toBe('game');
+      expect(state.config?.platform).toBe('youtube');
     });
   });
 
@@ -410,7 +410,7 @@ describe('configStore', () => {
       useConfigStore.setState({ config: defaultConfig });
       mockInvoke.mockResolvedValue(undefined);
 
-      const styles = ['talk', 'gaming', 'music', 'art', 'other'] as const;
+      const styles = ['talk', 'game', 'music', 'art'] as const;
       const { updateConfig } = useConfigStore.getState();
 
       for (const style of styles) {
@@ -423,7 +423,7 @@ describe('configStore', () => {
       useConfigStore.setState({ config: defaultConfig });
       mockInvoke.mockResolvedValue(undefined);
 
-      const platforms = ['youTube', 'twitch', 'nicoNico', 'other'] as const;
+      const platforms = ['youtube', 'twitch', 'niconico', 'other'] as const;
       const { updateConfig } = useConfigStore.getState();
 
       for (const platform of platforms) {

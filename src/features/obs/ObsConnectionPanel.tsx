@@ -118,40 +118,40 @@ export function ObsConnectionPanel() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900/50 p-6 card-interactive">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">OBS接続設定</h3>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">OBS接続設定</h3>
         <div className="flex items-center gap-2">
           <span
             className={`w-3 h-3 rounded-full ${getStatusBadgeClass()}`}
             aria-hidden="true"
           />
-          <span className="text-sm text-gray-600">{getStatusLabel()}</span>
+          <span className="text-sm text-gray-600 dark:text-gray-300">{getStatusLabel()}</span>
         </div>
       </div>
 
       {/* エラー表示 */}
       {translatedError && (
         <div
-          className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md"
+          className="mb-4 p-3 bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-700 rounded-md"
           role="alert"
           aria-live="assertive"
         >
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-red-700">
+              <span className="text-sm font-medium text-red-700 dark:text-red-200">
                 {translatedError.message}
               </span>
               <button
                 onClick={clearError}
-                className="text-red-500 hover:text-red-700 text-sm"
+                className="text-red-500 hover:text-red-700 dark:hover:text-red-300 text-sm"
                 aria-label="エラーを閉じる"
               >
                 x
               </button>
             </div>
             {translatedError.hint && (
-              <p className="text-xs text-red-600">{translatedError.hint}</p>
+              <p className="text-xs text-red-600 dark:text-red-200">{translatedError.hint}</p>
             )}
           </div>
         </div>
@@ -163,7 +163,7 @@ export function ObsConnectionPanel() {
         <div>
           <label
             htmlFor="obs-host"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
           >
             ホスト
           </label>
@@ -175,9 +175,9 @@ export function ObsConnectionPanel() {
             disabled={isConnected || isConnecting}
             placeholder="localhost"
             aria-describedby="obs-host-hint"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
           />
-          <p id="obs-host-hint" className="mt-1 text-xs text-gray-500">
+          <p id="obs-host-hint" className="mt-1 text-xs text-gray-600 dark:text-gray-300">
             OBSが同じパソコンで動いている場合は「localhost」のままでOKです
           </p>
         </div>
@@ -186,7 +186,7 @@ export function ObsConnectionPanel() {
         <div>
           <label
             htmlFor="obs-port"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
           >
             ポート
           </label>
@@ -200,19 +200,19 @@ export function ObsConnectionPanel() {
             disabled={isConnected || isConnecting}
             aria-invalid={!portValidation.valid && portInput !== ''}
             aria-describedby="obs-port-hint obs-port-error"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 ${
               !portValidation.valid && portInput !== ''
-                ? 'border-red-300 focus:ring-red-500'
-                : 'border-gray-300 focus:ring-blue-500'
+                ? 'border-red-300 dark:border-red-700 focus:ring-red-500'
+                : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
             }`}
           />
           {/* バリデーションエラー表示 */}
           {!portValidation.valid && portInput !== '' ? (
-            <p id="obs-port-error" className="mt-1 text-xs text-red-600">
+            <p id="obs-port-error" className="mt-1 text-xs text-red-600 dark:text-red-300">
               {portValidation.error}
             </p>
           ) : (
-            <p id="obs-port-hint" className="mt-1 text-xs text-gray-500">
+            <p id="obs-port-hint" className="mt-1 text-xs text-gray-600 dark:text-gray-300">
               OBSの設定 → WebSocketサーバーで確認できます（通常は4455）
             </p>
           )}
@@ -222,7 +222,7 @@ export function ObsConnectionPanel() {
         <div>
           <label
             htmlFor="obs-password"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
           >
             パスワード（オプション）
           </label>
@@ -234,12 +234,12 @@ export function ObsConnectionPanel() {
               onChange={(e) => setPassword(e.target.value)}
               disabled={isConnected || isConnecting}
               placeholder="設定している場合のみ入力"
-              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200"
               aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
             >
               {showPassword ? (
@@ -287,7 +287,7 @@ export function ObsConnectionPanel() {
             <button
               onClick={() => void handleDisconnect()}
               disabled={loading}
-              className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200 hover:scale-105 active:scale-95"
             >
               {loading ? '切断中...' : '切断'}
             </button>
@@ -295,7 +295,7 @@ export function ObsConnectionPanel() {
             <button
               onClick={() => void handleConnect()}
               disabled={loading || isConnecting || !canConnect}
-              className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200 hover:scale-105 active:scale-95"
             >
               {isConnecting ? '接続中...' : '接続'}
             </button>

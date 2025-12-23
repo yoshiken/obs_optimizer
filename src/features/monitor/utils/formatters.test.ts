@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { formatBytes, formatSpeed, formatPercent, formatRelativeTime } from './formatters';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { formatBytes, formatPercent, formatRelativeTime, formatSpeed } from './formatters';
 
 describe('formatters', () => {
   describe('formatBytes', () => {

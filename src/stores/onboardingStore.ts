@@ -15,18 +15,21 @@ export interface UserPreferences {
 // ========================================
 
 interface OnboardingState {
-  /** 現在のステップ（1-7） */
+  /** 現在のステップ（1-4） */
   currentStep: number;
   /** オンボーディング完了フラグ */
   completed: boolean;
   /** ユーザーの配信設定 */
   userPreferences: UserPreferences;
+  /** OBS接続テスト中フラグ */
+  testingConnection: boolean;
 
   // アクション
   setStep: (step: number) => void;
   nextStep: () => void;
   prevStep: () => void;
   setUserPreferences: (prefs: Partial<UserPreferences>) => void;
+  setTestingConnection: (testing: boolean) => void;
   completeOnboarding: () => void;
   resetOnboarding: () => void;
 }
@@ -36,10 +39,10 @@ interface OnboardingState {
 // ========================================
 
 /** 総ステップ数 */
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 4;
 
 /** 必須ステップ（スキップ不可） */
-const REQUIRED_STEPS = [2, 5]; // Step 2: OBS接続、Step 5: 環境分析
+const REQUIRED_STEPS = [3]; // Step 3: OBS接続テスト
 
 // ========================================
 // ストア実装
@@ -48,6 +51,7 @@ const REQUIRED_STEPS = [2, 5]; // Step 2: OBS接続、Step 5: 環境分析
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   currentStep: 1,
   completed: false,
+  testingConnection: false,
   userPreferences: {
     streamStyle: null,
     platform: null,
@@ -82,6 +86,10 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     }));
   },
 
+  setTestingConnection: (testing) => {
+    set({ testingConnection: testing });
+  },
+
   completeOnboarding: () => {
     set({ completed: true, currentStep: TOTAL_STEPS });
   },
@@ -90,6 +98,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     set({
       currentStep: 1,
       completed: false,
+      testingConnection: false,
       userPreferences: {
         streamStyle: null,
         platform: null,

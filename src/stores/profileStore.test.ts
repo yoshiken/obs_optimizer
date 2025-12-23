@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProfileStore } from './profileStore';
 import { invoke } from '@tauri-apps/api/core';
 import type { SettingsProfile } from '../types/commands';

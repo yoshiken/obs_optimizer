@@ -8,3 +8,4 @@ export { useObsStore } from './obsStore';
 export { useOnboardingStore, type UserPreferences, TOTAL_STEPS, REQUIRED_STEPS } from './onboardingStore';
 export { useProfileStore } from './profileStore';
 export { useStreamingModeStore } from './streamingModeStore';
+export { useThemeStore, initializeTheme, type ThemeMode } from './themeStore';

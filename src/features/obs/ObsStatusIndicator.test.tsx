@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '../../tests/utils/test-utils';
 import { ObsStatusIndicator } from './ObsStatusIndicator';
 import { useObsStore } from '../../stores/obsStore';
@@ -244,7 +244,7 @@ describe('ObsStatusIndicator', () => {
         },
       });
 
-      const { container } = render(<ObsStatusIndicator />);
+      render(<ObsStatusIndicator />);
       const renderedDropText = screen.getByText('10');
       expect(renderedDropText.className).toContain('text-yellow-600');
     });
@@ -261,7 +261,7 @@ describe('ObsStatusIndicator', () => {
         },
       });
 
-      const { container } = render(<ObsStatusIndicator />);
+      render(<ObsStatusIndicator />);
       const outputDropText = screen.getByText('5');
       expect(outputDropText.className).toContain('text-red-600');
     });
@@ -278,7 +278,7 @@ describe('ObsStatusIndicator', () => {
         },
       });
 
-      const { container } = render(<ObsStatusIndicator />);
+      render(<ObsStatusIndicator />);
       const renderDropText = screen.getAllByText('0')[0];
       expect(renderDropText.className).toContain('text-gray-800');
     });

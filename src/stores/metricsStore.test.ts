@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMetricsStore } from './metricsStore';
 import { invoke } from '@tauri-apps/api/core';
 import {
-  mockSystemMetrics,
   mockObsProcessMetrics,
-  setupInvokeMock,
+  mockSystemMetrics,
   setupInvokeErrorMock,
+  setupInvokeMock,
 } from '../tests/mocks/tauriMocks';
 
 vi.mock('@tauri-apps/api/core');

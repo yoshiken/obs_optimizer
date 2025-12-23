@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStreamingModeStore } from './streamingModeStore';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { type Event, listen } from '@tauri-apps/api/event';
 import type { StreamingChangedPayload } from '../types/commands';
 import { OBS_EVENTS } from '../types/commands';
 
@@ -194,13 +194,14 @@ describe('streamingModeStore', () => {
 
   describe('initializeAutoMode', () => {
     it('OBS配信開始イベントのリスナーを登録する', () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       const { initializeAutoMode } = useStreamingModeStore.getState();
@@ -214,13 +215,14 @@ describe('streamingModeStore', () => {
     });
 
     it('配信開始イベントで配信中モードを自動的にONにする', async () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       mockInvoke.mockResolvedValue(undefined);
@@ -229,14 +231,14 @@ describe('streamingModeStore', () => {
       initializeAutoMode();
 
       // 配信開始イベントをシミュレート
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: true,
-            startedAt: Date.now(),
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 1,
+        payload: {
+          isStreaming: true,
+          startedAt: Date.now(),
+        },
+      });
 
       // invokeの完了を待つ
       await vi.waitFor(() => {
@@ -250,13 +252,14 @@ describe('streamingModeStore', () => {
     });
 
     it('配信終了イベントで配信中モードを自動的にOFFにする', async () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       mockInvoke.mockResolvedValue(undefined);
@@ -268,14 +271,14 @@ describe('streamingModeStore', () => {
       initializeAutoMode();
 
       // 配信終了イベントをシミュレート
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: false,
-            startedAt: null,
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 2,
+        payload: {
+          isStreaming: false,
+          startedAt: null,
+        },
+      });
 
       // invokeの完了を待つ
       await vi.waitFor(() => {
@@ -303,13 +306,14 @@ describe('streamingModeStore', () => {
     });
 
     it('配信中モード設定エラー時にエラー状態を設定する', async () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       const errorMessage = 'Failed to set streaming mode';
@@ -319,14 +323,14 @@ describe('streamingModeStore', () => {
       initializeAutoMode();
 
       // 配信開始イベントをシミュレート
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: true,
-            startedAt: Date.now(),
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 3,
+        payload: {
+          isStreaming: true,
+          startedAt: Date.now(),
+        },
+      });
 
       // エラー処理を待つ
       await vi.waitFor(() => {
@@ -361,7 +365,7 @@ describe('streamingModeStore', () => {
     it('読み込み→設定→クリアの一連の流れが正しく動作する', async () => {
       mockInvoke.mockResolvedValueOnce(false);
 
-      const { loadStreamingMode, setEnabled, clearError } = useStreamingModeStore.getState();
+      const { loadStreamingMode, setEnabled } = useStreamingModeStore.getState();
 
       // 状態を読み込む
       await loadStreamingMode();
@@ -401,13 +405,14 @@ describe('streamingModeStore', () => {
     });
 
     it('自動モード初期化と手動設定が併用できる', async () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       mockInvoke.mockResolvedValue(undefined);
@@ -422,14 +427,14 @@ describe('streamingModeStore', () => {
       expect(useStreamingModeStore.getState().isEnabled).toBe(true);
 
       // 配信終了イベントで自動的にOFF
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: false,
-            startedAt: null,
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 4,
+        payload: {
+          isStreaming: false,
+          startedAt: null,
+        },
+      });
 
       await vi.waitFor(() => {
         expect(useStreamingModeStore.getState().isEnabled).toBe(false);
@@ -439,13 +444,14 @@ describe('streamingModeStore', () => {
 
   describe('配信ライフサイクル', () => {
     it('配信開始→終了の一連のイベントフローが正しく動作する', async () => {
-      let eventHandler: ((event: { payload: StreamingChangedPayload }) => void) | null = null;
+      type EventHandler = (event: Event<StreamingChangedPayload>) => void;
+      let eventHandler: EventHandler | null = null;
 
-      mockListen.mockImplementation(async (eventName: string, handler: (event: unknown) => void) => {
+      mockListen.mockImplementation((eventName: string, handler: EventHandler) => {
         if (eventName === OBS_EVENTS.STREAMING_CHANGED) {
-          eventHandler = handler as (event: { payload: StreamingChangedPayload }) => void;
+          eventHandler = handler;
         }
-        return () => {};
+        return Promise.resolve(() => {});
       });
 
       mockInvoke.mockResolvedValue(undefined);
@@ -454,28 +460,28 @@ describe('streamingModeStore', () => {
       initializeAutoMode();
 
       // 配信開始
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: true,
-            startedAt: Date.now(),
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 5,
+        payload: {
+          isStreaming: true,
+          startedAt: Date.now(),
+        },
+      });
 
       await vi.waitFor(() => {
         expect(useStreamingModeStore.getState().isEnabled).toBe(true);
       });
 
       // 配信終了
-      if (eventHandler) {
-        eventHandler({
-          payload: {
-            isStreaming: false,
-            startedAt: null,
-          },
-        });
-      }
+      eventHandler!({
+        event: OBS_EVENTS.STREAMING_CHANGED,
+        id: 6,
+        payload: {
+          isStreaming: false,
+          startedAt: null,
+        },
+      });
 
       await vi.waitFor(() => {
         expect(useStreamingModeStore.getState().isEnabled).toBe(false);

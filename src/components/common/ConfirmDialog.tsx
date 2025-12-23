@@ -110,7 +110,7 @@ export function ConfirmDialog({
     <>
       {/* 背景オーバーレイ */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
+        className="fixed inset-0 bg-black bg-opacity-50 z-40 fade-in"
         onClick={onCancel}
         aria-hidden="true"
       />
@@ -124,17 +124,17 @@ export function ConfirmDialog({
         aria-describedby="dialog-description"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-gray-900/50 max-w-md w-full p-6 fade-in">
           {/* タイトル */}
           <h2
             id="dialog-title"
-            className="text-xl font-semibold text-gray-800 mb-4"
+            className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4"
           >
             {title}
           </h2>
 
           {/* メッセージ */}
-          <p id="dialog-description" className="text-gray-600 mb-6">
+          <p id="dialog-description" className="text-gray-700 dark:text-gray-200 mb-6">
             {message}
           </p>
 
@@ -142,14 +142,14 @@ export function ConfirmDialog({
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 active:scale-95"
             >
               {cancelText}
             </button>
             <button
               ref={confirmButtonRef}
               onClick={onConfirm}
-              className={`px-4 py-2 rounded-md transition-colors ${confirmButtonClass}`}
+              className={`px-4 py-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg ${confirmButtonClass}`}
             >
               {confirmText}
             </button>

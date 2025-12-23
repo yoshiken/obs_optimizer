@@ -56,11 +56,11 @@ export function ObsStatusIndicator() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">OBSステータス</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900/50 p-6">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">OBSステータス</h3>
 
       {!isConnected ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-600 dark:text-gray-300">
           <p>OBSに接続されていません</p>
         </div>
       ) : (
@@ -72,10 +72,10 @@ export function ObsStatusIndicator() {
                 className={`w-3 h-3 rounded-full ${getConnectionBadgeClass()}`}
                 aria-hidden="true"
               />
-              <span className="text-sm font-medium text-gray-700">接続済み</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">接続済み</span>
             </div>
             {status?.obsVersion && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-600 dark:text-gray-300">
                 OBS {status.obsVersion} / WS {status.websocketVersion}
               </span>
             )}
@@ -84,18 +84,18 @@ export function ObsStatusIndicator() {
           {/* 配信/録画インジケーター */}
           <div className="grid grid-cols-2 gap-4">
             {/* 配信状態 */}
-            <div className="bg-gray-50 rounded-md p-3">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
               <div className="flex items-center gap-2 mb-2">
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${getStreamingBadgeClass()}`}
                   aria-hidden="true"
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   {status?.streaming ? '配信中' : '配信停止'}
                 </span>
               </div>
               {status?.streaming && (
-                <div className="text-xs text-gray-500 space-y-1">
+                <div className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
                   <div>時間: {formatTimecode(status.streamTimecode)}</div>
                   <div>ビットレート: {formatBitrate(status.streamBitrate)}</div>
                 </div>
@@ -103,18 +103,18 @@ export function ObsStatusIndicator() {
             </div>
 
             {/* 録画状態 */}
-            <div className="bg-gray-50 rounded-md p-3">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
               <div className="flex items-center gap-2 mb-2">
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${getRecordingBadgeClass()}`}
                   aria-hidden="true"
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   {status?.recording ? '録画中' : '録画停止'}
                 </span>
               </div>
               {status?.recording && (
-                <div className="text-xs text-gray-500 space-y-1">
+                <div className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
                   <div>時間: {formatTimecode(status.recordTimecode)}</div>
                   <div>ビットレート: {formatBitrate(status.recordBitrate)}</div>
                 </div>
@@ -123,25 +123,25 @@ export function ObsStatusIndicator() {
           </div>
 
           {/* 現在のシーン */}
-          <div className="bg-gray-50 rounded-md p-3">
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">現在のシーン</span>
-              <span className="text-sm text-gray-800 font-mono">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">現在のシーン</span>
+              <span className="text-sm text-gray-800 dark:text-gray-100 font-mono">
                 {status?.currentScene ?? '不明'}
               </span>
             </div>
           </div>
 
           {/* パフォーマンス統計 */}
-          <div className="border-t pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">パフォーマンス</h4>
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">パフォーマンス</h4>
             <div className="grid grid-cols-3 gap-4">
               {/* FPS */}
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-800">
+                <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                   {status?.fps?.toFixed(1) ?? '--'}
                 </div>
-                <div className="text-xs text-gray-500">FPS</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">FPS</div>
               </div>
 
               {/* レンダリングドロップ */}
@@ -149,13 +149,13 @@ export function ObsStatusIndicator() {
                 <div
                   className={`text-2xl font-bold ${
                     (status?.renderDroppedFrames ?? 0) > 0
-                      ? 'text-yellow-600'
-                      : 'text-gray-800'
+                      ? 'text-yellow-600 dark:text-yellow-300'
+                      : 'text-gray-800 dark:text-gray-100'
                   }`}
                 >
                   {status?.renderDroppedFrames ?? '--'}
                 </div>
-                <div className="text-xs text-gray-500">レンダードロップ</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">レンダードロップ</div>
               </div>
 
               {/* 出力ドロップ */}
@@ -163,20 +163,20 @@ export function ObsStatusIndicator() {
                 <div
                   className={`text-2xl font-bold ${
                     (status?.outputDroppedFrames ?? 0) > 0
-                      ? 'text-red-600'
-                      : 'text-gray-800'
+                      ? 'text-red-600 dark:text-red-300'
+                      : 'text-gray-800 dark:text-gray-100'
                   }`}
                 >
                   {status?.outputDroppedFrames ?? '--'}
                 </div>
-                <div className="text-xs text-gray-500">出力ドロップ</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">出力ドロップ</div>
               </div>
             </div>
           </div>
 
           {/* 仮想カメラ */}
           {status?.virtualCamActive && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
               <svg
                 className="w-4 h-4 text-green-500"
                 fill="currentColor"

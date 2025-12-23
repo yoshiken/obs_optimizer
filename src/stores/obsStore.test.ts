@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useObsStore } from './obsStore';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
   mockObsStatus,
   mockSceneList,
-  setupInvokeMock,
   setupInvokeErrorMock,
+  setupInvokeMock,
   setupListenMock,
 } from '../tests/mocks/tauriMocks';
 import type { ObsConnectionParams } from '../types/commands';

@@ -40,7 +40,7 @@ export function MetricCard({
     borderRadius: '8px',
     padding: '16px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    transition: 'box-shadow 0.2s',
+    transition: 'all 0.2s ease',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -88,7 +88,7 @@ export function MetricCard({
   }
 
   return (
-    <div style={cardStyle} className={className}>
+    <div style={cardStyle} className={`card-interactive ${className}`}>
       <div style={headerStyle}>
         {icon}
         <span>{title}</span>

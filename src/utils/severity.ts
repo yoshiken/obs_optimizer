@@ -51,12 +51,12 @@ export function getSeverityLevel(
 export function getSeverityColorClass(severity: SeverityLevel): string {
   switch (severity) {
     case 'critical':
-      return 'text-red-600';
+      return 'text-red-600 dark:text-red-300';
     case 'warning':
-      return 'text-yellow-600';
+      return 'text-yellow-600 dark:text-yellow-300';
     case 'normal':
     default:
-      return 'text-gray-800';
+      return 'text-gray-800 dark:text-gray-100';
   }
 }
 

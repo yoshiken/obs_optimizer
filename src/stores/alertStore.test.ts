@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAlertStore } from './alertStore';
-import type { UIAlert, AlertSeverity } from './alertStore';
+import type { AlertSeverity } from './alertStore';
 
 describe('alertStore', () => {
   beforeEach(() => {

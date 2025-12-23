@@ -124,9 +124,9 @@ export function ObsStreamControls() {
 
   if (!isConnected) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">配信・録画コントロール</h3>
-        <div className="text-center py-8 text-gray-500">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900/50 p-6">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">配信・録画コントロール</h3>
+        <div className="text-center py-8 text-gray-600 dark:text-gray-300">
           <p>OBSに接続されていません</p>
         </div>
       </div>
@@ -159,22 +159,22 @@ export function ObsStreamControls() {
         onCancel={() => setShowRecordingStopDialog(false)}
       />
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">配信・録画コントロール</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900/50 p-6 card-interactive">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">配信・録画コントロール</h3>
 
       {/* 録画完了通知 */}
       {showRecordingPathNotice && lastRecordingPath && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-md">
+        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm text-green-700 font-medium">録画が保存されました</span>
-              <p className="text-xs text-green-600 mt-1 font-mono truncate" title={lastRecordingPath}>
+              <span className="text-sm text-green-700 dark:text-green-300 font-medium">録画が保存されました</span>
+              <p className="text-xs text-green-600 dark:text-green-300 mt-1 font-mono truncate" title={lastRecordingPath}>
                 {lastRecordingPath}
               </p>
             </div>
             <button
               onClick={() => setShowRecordingPathNotice(false)}
-              className="text-green-500 hover:text-green-700 text-sm"
+              className="text-green-500 hover:text-green-700 dark:hover:text-green-300 text-sm"
               aria-label="通知を閉じる"
             >
               x
@@ -187,9 +187,9 @@ export function ObsStreamControls() {
         {/* 配信コントロール */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">配信</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">配信</span>
             {isStreaming && (
-              <span className="flex items-center gap-1 text-xs text-red-600">
+              <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-300">
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 LIVE
               </span>
@@ -197,8 +197,8 @@ export function ObsStreamControls() {
           </div>
 
           {/* 配信時間 */}
-          <div className="text-center py-3 bg-gray-50 rounded-md">
-            <span className="text-3xl font-mono font-bold text-gray-800">
+          <div className="text-center py-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <span className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-100">
               {formatTimecode(status?.streamTimecode ?? null)}
             </span>
           </div>
@@ -207,10 +207,10 @@ export function ObsStreamControls() {
           <button
             onClick={handleStreamingToggle}
             disabled={loading}
-            className={`w-full px-4 py-3 rounded-md text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full px-4 py-3 rounded-md text-white font-medium transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
               isStreaming
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-green-500 hover:bg-green-600'
+                ? 'bg-red-500 hover:bg-red-600 hover:shadow-lg'
+                : 'bg-green-500 hover:bg-green-600 hover:shadow-lg'
             }`}
           >
             {loading ? (
@@ -265,9 +265,9 @@ export function ObsStreamControls() {
         {/* 録画コントロール */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">録画</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">録画</span>
             {isRecording && (
-              <span className="flex items-center gap-1 text-xs text-red-600">
+              <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-300">
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 REC
               </span>
@@ -275,8 +275,8 @@ export function ObsStreamControls() {
           </div>
 
           {/* 録画時間 */}
-          <div className="text-center py-3 bg-gray-50 rounded-md">
-            <span className="text-3xl font-mono font-bold text-gray-800">
+          <div className="text-center py-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <span className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-100">
               {formatTimecode(status?.recordTimecode ?? null)}
             </span>
           </div>
@@ -285,10 +285,10 @@ export function ObsStreamControls() {
           <button
             onClick={handleRecordingToggle}
             disabled={loading}
-            className={`w-full px-4 py-3 rounded-md text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full px-4 py-3 rounded-md text-white font-medium transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
               isRecording
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-blue-500 hover:bg-blue-600'
+                ? 'bg-red-500 hover:bg-red-600 hover:shadow-lg'
+                : 'bg-blue-500 hover:bg-blue-600 hover:shadow-lg'
             }`}
           >
             {loading ? (

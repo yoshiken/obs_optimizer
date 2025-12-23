@@ -6,7 +6,16 @@
   filter: drop-shadow(0 0 2em #61dafb);
 }
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  /* 日本語対応フォントスタック:
+     - Inter: 英数字用の現代的なサンセリフ
+     - Noto Sans JP: Googleの日本語フォント（クロスプラットフォーム）
+     - Hiragino Sans / Hiragino Kaku Gothic ProN: macOS標準の日本語フォント
+     - Yu Gothic UI: Windows 10/11の高品質日本語フォント
+     - Meiryo: Windows 7/8フォールバック
+     - sans-serif: システムデフォルトフォールバック
+  */
+  font-family: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+               'Yu Gothic UI', 'Meiryo', sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
@@ -113,4 +122,46 @@ button {
   button:active {
     background-color: #0f0f0f69;
   }
+}
+
+/* 数値表示用のモノスペースフォント
+   メトリクス表示（CPU使用率、FPS、ビットレートなど）で使用 */
+.font-mono,
+.metric-value,
+[data-numeric="true"] {
+  font-family: 'JetBrains Mono', 'Source Code Pro', 'Noto Sans Mono CJK JP',
+               'Consolas', 'Monaco', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  /* 数字を等幅にして桁揃えを改善 */
+}
+
+/* オンボーディングアニメーション */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s ease-out;
 }

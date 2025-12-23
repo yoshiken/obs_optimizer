@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '../tests/utils/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '../tests/utils/test-utils';
 import { Toast } from './Toast';
 import type { UIAlert } from '../stores/alertStore';
-import userEvent from '@testing-library/user-event';
 
 describe('Toast', () => {
-  let mockOnDismiss: ReturnType<typeof vi.fn>;
+  let mockOnDismiss: (id: string) => void;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -24,7 +23,7 @@ describe('Toast', () => {
     title: 'テストタイトル',
     message: 'テストメッセージ',
     timestamp: Date.now(),
-    active: true,
+    dismissed: false,
   };
 
   describe('レンダリング', () => {
