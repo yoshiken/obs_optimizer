@@ -88,8 +88,8 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4 overflow-hidden">
-      <div className="max-w-3xl w-full bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300 max-h-[calc(100vh-2rem)] flex flex-col">
+    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 overflow-hidden">
+      <div className="max-w-3xl w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden transition-all duration-300 max-h-[calc(100vh-2rem)] flex flex-col">
         {/* プログレスバー */}
         <div className="px-6 pt-6 pb-3 bg-gradient-to-r from-blue-500 to-indigo-600 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
@@ -140,16 +140,16 @@ export function OnboardingWizard() {
         </div>
 
         {/* ステップコンテンツ */}
-        <div className="px-6 py-6 flex-1 overflow-y-auto bg-white">
+        <div className="px-6 py-6 flex-1 overflow-y-auto bg-white dark:bg-gray-800">
           <div className="animate-fade-in">{renderStep()}</div>
         </div>
 
         {/* ナビゲーションボタン */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
           <button
             onClick={prevStep}
             disabled={currentStep === 1}
-            className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm hover:shadow"
+            className="px-6 py-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm hover:shadow"
           >
             <span className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

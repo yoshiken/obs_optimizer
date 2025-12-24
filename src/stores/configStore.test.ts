@@ -139,7 +139,7 @@ describe('configStore', () => {
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
 
-      expect(mockInvoke).toHaveBeenCalledWith('save_config', { config: mockConfig });
+      expect(mockInvoke).toHaveBeenCalledWith('save_app_config', { config: mockConfig });
     });
 
     it('保存中はローディング状態になる', async () => {
@@ -222,7 +222,7 @@ describe('configStore', () => {
       expect(state.config?.streamStyle).toBe('game');
       expect(state.config?.platform).toBe('youtube');
 
-      expect(mockInvoke).toHaveBeenCalledWith('save_config', {
+      expect(mockInvoke).toHaveBeenCalledWith('save_app_config', {
         config: {
           ...mockConfig,
           saveConnection: false,
@@ -243,14 +243,17 @@ describe('configStore', () => {
       expect(state.config?.streamingModeEnabled).toBe(true);
     });
 
-    it('設定が読み込まれていない場合はエラーを投げる', async () => {
+    it('設定が読み込まれていない場合はデフォルト設定を使用する', async () => {
       useConfigStore.setState({ config: null });
+      mockInvoke.mockResolvedValue(undefined);
 
       const { updateConfig } = useConfigStore.getState();
 
-      await expect(updateConfig({ saveConnection: true })).rejects.toThrow(
-        '設定が読み込まれていません'
-      );
+      // configがnullでもデフォルト設定を使用して保存できる
+      await updateConfig({ saveConnection: true });
+
+      const state = useConfigStore.getState();
+      expect(state.config?.saveConnection).toBe(true);
     });
 
     it('更新中はローディング状態になる', async () => {

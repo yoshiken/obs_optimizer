@@ -5,7 +5,7 @@ export function Welcome() {
   return (
     <div className="text-center py-4">
       <div className="mb-4">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
           <svg
             className="w-8 h-8 text-blue-600"
             fill="none"
@@ -23,7 +23,7 @@ export function Welcome() {
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
           OBS配信最適化ツールへようこそ
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
           あなたの配信環境に最適な設定を簡単に見つけられます
         </p>
       </div>
@@ -92,11 +92,11 @@ interface FeatureItemProps {
 
 function FeatureItem({ icon, title, description }: FeatureItemProps) {
   return (
-    <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+    <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
       <div className="flex-shrink-0 text-blue-600">{icon}</div>
       <div>
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{title}</h3>
-        <p className="text-xs text-gray-600 dark:text-gray-400">{description}</p>
+        <p className="text-xs text-gray-600 dark:text-gray-300">{description}</p>
       </div>
     </div>
   );

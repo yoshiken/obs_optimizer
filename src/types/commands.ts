@@ -743,7 +743,8 @@ export interface SessionInfo {
   endedAt: number;
 }
 
-export interface SystemInfo {
+/** 診断レポート用のシステム情報（OSを含む） */
+export interface DiagnosticSystemInfo {
   os: string;
   cpuModel: string;
   totalMemoryMb: number;
@@ -761,7 +762,7 @@ export interface PerformanceEvaluation {
 export interface DiagnosticReport {
   generatedAt: number;
   session: SessionInfo;
-  systemInfo: SystemInfo;
+  systemInfo: DiagnosticSystemInfo;
   problems: ProblemReport[];
   performance: PerformanceEvaluation;
   recommendationsSummary: string;

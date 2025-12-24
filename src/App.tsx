@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ObsConnectionPanel } from './features/obs/ObsConnectionPanel';
+import { ObsStatusBar } from './features/obs/ObsStatusBar';
 import { ObsStatusIndicator } from './features/obs/ObsStatusIndicator';
 import { ObsStreamControls } from './features/obs/ObsStreamControls';
 import { ObsSceneSelector } from './features/obs/ObsSceneSelector';
@@ -7,6 +8,7 @@ import { MetricsPanel } from './features/monitor';
 import { ThemeToggle } from './components/ThemeToggle';
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard';
 import { ProblemDashboard } from './features/analysis/ProblemDashboard';
+import { RecommendedSettingsPanel } from './features/optimization/RecommendedSettingsPanel';
 import { OneClickApply } from './features/optimization/OneClickApply';
 import { ProfileList } from './features/profiles/ProfileList';
 import { SessionHistory } from './features/history/SessionHistory';
@@ -240,12 +242,21 @@ function App() {
  * ダッシュボードタブ - OBS接続、ステータス、メトリクス監視
  */
 function DashboardTab() {
+  const { connectionState } = useObsStore();
+  const isConnected = connectionState === 'connected';
+
   return (
     <div className="space-y-6">
-      {/* OBS接続設定パネル */}
-      <section>
-        <ObsConnectionPanel />
-      </section>
+      {/* 接続状態に応じて切り替え */}
+      {isConnected ? (
+        <section>
+          <ObsStatusBar />
+        </section>
+      ) : (
+        <section>
+          <ObsConnectionPanel />
+        </section>
+      )}
 
       {/* OBSコントロール と システムメトリクス */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -286,6 +297,7 @@ function AnalysisTab() {
 function OptimizationTab() {
   return (
     <div className="space-y-6">
+      <RecommendedSettingsPanel />
       <OneClickApply />
       <ProfileList />
     </div>

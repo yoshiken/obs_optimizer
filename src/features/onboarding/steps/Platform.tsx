@@ -14,8 +14,8 @@ export function PlatformStep() {
   return (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">配信プラットフォームを選択</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">配信プラットフォームを選択</h2>
+        <p className="text-gray-600 dark:text-gray-300">
           主にどのプラットフォームで配信されますか？
         </p>
       </div>
@@ -52,8 +52,8 @@ export function PlatformStep() {
       </div>
 
       {userPreferences.platform && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-          <p className="text-sm text-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 text-center">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
             {getPlatformDescription(userPreferences.platform)}
           </p>
         </div>
@@ -82,15 +82,15 @@ function PlatformCard({ icon, title, description, selected, onClick }: PlatformC
         p-6 rounded-lg border-2 transition-all text-left
         ${
           selected
-            ? 'border-blue-500 bg-blue-50 shadow-md'
-            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow'
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-md'
+            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow'
         }
       `}
       aria-pressed={selected}
     >
       <div className="text-4xl mb-3">{icon}</div>
-      <h3 className="font-semibold text-gray-900 mb-1">{title}</h3>
-      <p className="text-sm text-gray-600">{description}</p>
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{title}</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-300">{description}</p>
     </button>
   );
 }
