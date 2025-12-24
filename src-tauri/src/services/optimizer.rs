@@ -6,6 +6,8 @@
 use crate::obs::ObsSettings;
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use crate::monitor::gpu::GpuInfo;
+use super::gpu_detection::{detect_gpu_generation, determine_cpu_tier, GpuGeneration};
+use super::encoder_selector::{EncoderSelector, EncoderSelectionContext};
 use serde::{Deserialize, Serialize};
 
 /// ハードウェア情報のサマリー
@@ -190,8 +192,14 @@ impl RecommendationEngine {
         let modifier = StyleModifier::from_style(style);
         let mut reasons = Vec::new();
 
-        // エンコーダー推奨
-        let recommended_encoder = Self::recommend_encoder(hardware, &mut reasons);
+        // エンコーダー推奨（新ロジック）
+        let recommended_encoder = Self::recommend_encoder(
+            hardware,
+            platform,
+            style,
+            network_speed_mbps,
+            &mut reasons,
+        );
 
         // ビットレート推奨
         let recommended_bitrate = Self::recommend_bitrate(
@@ -215,8 +223,14 @@ impl RecommendationEngine {
         // 音声設定推奨
         let audio_bitrate = Self::recommend_audio_bitrate(platform);
 
-        // プリセット推奨
-        let preset_string = Self::recommend_preset(&recommended_encoder, hardware);
+        // プリセット推奨（新ロジック）
+        let preset_string = Self::recommend_preset(
+            &recommended_encoder,
+            hardware,
+            platform,
+            style,
+            network_speed_mbps,
+        );
 
         // スコア算出
         let score = Self::calculate_score(current_settings, &RecommendedSettings {
@@ -264,31 +278,38 @@ impl RecommendationEngine {
         }
     }
 
-    /// エンコーダー推奨
-    fn recommend_encoder(hardware: &HardwareInfo, reasons: &mut Vec<String>) -> String {
-        if let Some(gpu) = &hardware.gpu {
-            if gpu.name.to_lowercase().contains("nvidia") {
-                reasons.push("NVIDIA GPUを検出したため、NVENCエンコーダーを推奨します".to_string());
-                return "ffmpeg_nvenc".to_string();
-            }
-            if gpu.name.to_lowercase().contains("amd") {
-                reasons.push("AMD GPUを検出したため、VCEエンコーダーを推奨します".to_string());
-                return "amd_amf_h264".to_string();
-            }
-            if gpu.name.to_lowercase().contains("intel") {
-                reasons.push("Intel GPUを検出したため、QuickSyncエンコーダーを推奨します".to_string());
-                return "obs_qsv11".to_string();
-            }
-        }
-
-        // GPUがない、または対応していない場合はCPUエンコーダー
-        if hardware.cpu_cores >= 8 {
-            reasons.push("高性能CPUを検出しましたが、負荷軽減のためハードウェアエンコーダーの使用を検討してください".to_string());
+    /// エンコーダー推奨（新ロジック）
+    fn recommend_encoder(
+        hardware: &HardwareInfo,
+        platform: StreamingPlatform,
+        style: StreamingStyle,
+        network_speed_mbps: f64,
+        reasons: &mut Vec<String>,
+    ) -> String {
+        // GPU世代を判定
+        let gpu_generation = if let Some(gpu) = &hardware.gpu {
+            detect_gpu_generation(&gpu.name)
         } else {
-            reasons.push("CPU性能が低めのため、ハードウェアエンコーダーの使用を強く推奨します".to_string());
-        }
+            GpuGeneration::None
+        };
 
-        "obs_x264".to_string()
+        // CPUティアを判定
+        let cpu_tier = determine_cpu_tier(hardware.cpu_cores);
+
+        // エンコーダー選択コンテキストを構築
+        let context = EncoderSelectionContext {
+            gpu_generation,
+            cpu_tier,
+            platform,
+            style,
+            network_speed_mbps,
+        };
+
+        // エンコーダーを選択
+        let recommended = EncoderSelector::select_encoder(&context);
+        reasons.push(recommended.reason.clone());
+
+        recommended.encoder_id
     }
 
     /// ビットレート推奨
@@ -360,25 +381,36 @@ impl RecommendationEngine {
         }
     }
 
-    /// プリセット推奨
-    fn recommend_preset(encoder: &str, hardware: &HardwareInfo) -> String {
-        if encoder.contains("nvenc") {
-            // NVENC: 品質優先
-            return "p5".to_string(); // Quality preset
-        }
+    /// プリセット推奨（新ロジック対応）
+    fn recommend_preset(
+        _encoder: &str,
+        hardware: &HardwareInfo,
+        platform: StreamingPlatform,
+        style: StreamingStyle,
+        network_speed_mbps: f64,
+    ) -> String {
+        // GPU世代を判定
+        let gpu_generation = if let Some(gpu) = &hardware.gpu {
+            detect_gpu_generation(&gpu.name)
+        } else {
+            GpuGeneration::None
+        };
 
-        if encoder.contains("x264") {
-            // CPU性能に応じたプリセット
-            if hardware.cpu_cores >= 8 {
-                return "fast".to_string();
-            }
-            if hardware.cpu_cores >= 4 {
-                return "veryfast".to_string();
-            }
-            return "ultrafast".to_string();
-        }
+        // CPUティアを判定
+        let cpu_tier = determine_cpu_tier(hardware.cpu_cores);
 
-        "default".to_string()
+        // エンコーダー選択コンテキストを構築
+        let context = EncoderSelectionContext {
+            gpu_generation,
+            cpu_tier,
+            platform,
+            style,
+            network_speed_mbps,
+        };
+
+        // エンコーダーを選択してプリセットを取得
+        let recommended = EncoderSelector::select_encoder(&context);
+        recommended.preset
     }
 
     /// 現在の設定と推奨設定を比較してスコアを算出

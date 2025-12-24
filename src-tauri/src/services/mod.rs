@@ -23,6 +23,8 @@ pub mod alerts;
 pub mod streaming_mode;
 pub mod analyzer;
 pub mod exporter;
+pub mod gpu_detection;
+pub mod encoder_selector;
 
 // 公開エクスポート
 // 将来的な拡張や外部クレートからの利用を想定した再エクスポート
@@ -40,3 +42,7 @@ pub use streaming_mode::{StreamingModeService, get_streaming_mode_service};
 pub use analyzer::{ProblemAnalyzer, ProblemReport, ProblemCategory};
 #[allow(unused_imports)]
 pub use exporter::{ReportExporter, DiagnosticReport, PerformanceEvaluation};
+#[allow(unused_imports)]
+pub use gpu_detection::{GpuGeneration, CpuTier, detect_gpu_generation, get_encoder_capability, determine_cpu_tier};
+#[allow(unused_imports)]
+pub use encoder_selector::{RecommendedEncoder, EncoderSelectionContext, EncoderSelector};

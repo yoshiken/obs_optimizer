@@ -252,10 +252,13 @@ impl ObsSettingsBuilder {
         self.resolution(1920, 1080)
             .output_resolution(1280, 720)
             .fps(30)
+            .bitrate(4500)  // 720p30に適したビットレート
     }
 
     pub fn preset_4k60(self) -> Self {
-        self.resolution(3840, 2160).fps(60)
+        self.resolution(3840, 2160)
+            .fps(60)
+            .bitrate(20000)  // 4K60に適したビットレート
     }
 
     pub fn encoder(mut self, encoder: &str) -> Self {
@@ -510,7 +513,12 @@ where
 
 /// CPU使用率が増加するメトリクス履歴を生成
 pub fn build_increasing_cpu_metrics(count: usize, start: f32, end: f32) -> Vec<SystemMetricsSnapshot> {
-    let step = (end - start) / count as f32;
+    // count - 1 で割ることで、最初の値が start、最後の値が end になる
+    let step = if count > 1 {
+        (end - start) / (count - 1) as f32
+    } else {
+        0.0
+    };
     build_metrics_sequence(count, move |i, builder| {
         builder.cpu_usage(start + step * i as f32)
     })
@@ -518,7 +526,12 @@ pub fn build_increasing_cpu_metrics(count: usize, start: f32, end: f32) -> Vec<S
 
 /// GPU使用率が増加するメトリクス履歴を生成
 pub fn build_increasing_gpu_metrics(count: usize, start: f32, end: f32) -> Vec<SystemMetricsSnapshot> {
-    let step = (end - start) / count as f32;
+    // count - 1 で割ることで、最初の値が start、最後の値が end になる
+    let step = if count > 1 {
+        (end - start) / (count - 1) as f32
+    } else {
+        0.0
+    };
     build_metrics_sequence(count, move |i, builder| {
         builder.gpu_usage(Some(start + step * i as f32))
     })

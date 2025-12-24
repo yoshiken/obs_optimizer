@@ -26,8 +26,10 @@ mod services;
 mod storage;
 mod tray;
 
-// テストユーティリティモジュール（テスト時のみコンパイル）
-#[cfg(test)]
+// テストユーティリティモジュール
+// - ユニットテスト（#[cfg(test)]）時にコンパイル
+// - 統合テスト実行時は --features testing でコンパイル
+#[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use error::AppError;

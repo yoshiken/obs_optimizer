@@ -476,6 +476,53 @@ export interface Commands {
 export type StreamingPlatform = 'youTube' | 'twitch' | 'nicoNico' | 'other';
 export type StreamingStyle = 'talk' | 'gaming' | 'music' | 'art' | 'other';
 
+// GPU世代の分類
+export type GpuGeneration =
+  | 'nvidiaPascal'
+  | 'nvidiaTuring'
+  | 'nvidiaAmpere'
+  | 'nvidiaAda'
+  | 'amdVcn3'
+  | 'amdVcn4'
+  | 'intelArc'
+  | 'intelQuickSync'
+  | 'unknown'
+  | 'none';
+
+// CPUティアの分類
+export type CpuTier = 'entry' | 'middle' | 'upperMiddle' | 'highEnd';
+
+// GPU世代ごとのエンコーダー能力
+export interface GpuEncoderCapability {
+  generation: GpuGeneration;
+  h264: boolean;
+  hevc: boolean;
+  av1: boolean;
+  bFrames: boolean;
+  qualityEquivalent: string;
+  recommendedPreset: string;
+}
+
+// 推奨エンコーダー情報
+export interface RecommendedEncoder {
+  encoderId: string;
+  displayName: string;
+  preset: string;
+  rateControl: string;
+  bFrames: number | null;
+  lookAhead: boolean;
+  psychoVisualTuning: boolean;
+  reason: string;
+}
+
+// ユーザー設定（推奨設定算出用）
+export interface UserPreferences {
+  platform: StreamingPlatform;
+  style: StreamingStyle;
+  networkUploadMbps: number;
+  networkType: 'fiber' | 'cable' | 'wifi' | 'other';
+}
+
 export interface ObsSettings {
   video: VideoSettings;
   audio: AudioSettings;
