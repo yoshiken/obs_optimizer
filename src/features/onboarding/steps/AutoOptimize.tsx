@@ -57,6 +57,12 @@ export function AutoOptimize() {
               preset="low"
               label="軽量（低負荷優先）"
               description="PCへの負荷を最小限に、安定性重視"
+              details={[
+                '画質: 720p (1280x720)',
+                'フレームレート: 30fps',
+                '画質の目安: 3000kbps程度',
+                '処理方法: CPUを使う（x264）',
+              ]}
               selected={selectedPreset === 'low'}
               onClick={() => setSelectedPreset('low')}
             />
@@ -64,6 +70,12 @@ export function AutoOptimize() {
               preset="medium"
               label="標準（推奨）"
               description="バランスの取れた設定"
+              details={[
+                '画質: 1080p (1920x1080)',
+                'フレームレート: 60fps',
+                '画質の目安: 6000kbps程度',
+                '処理方法: GPUを使う（NVENC/QuickSync）',
+              ]}
               selected={selectedPreset === 'medium'}
               onClick={() => setSelectedPreset('medium')}
             />
@@ -71,6 +83,13 @@ export function AutoOptimize() {
               preset="high"
               label="高品質"
               description="画質優先、ハイスペックPC向け"
+              details={[
+                '画質: 1080p (1920x1080)',
+                'フレームレート: 60fps',
+                '画質の目安: 9000kbps程度',
+                '処理方法: 高品質GPUエンコーディング',
+                '注意: ハイスペックPC推奨',
+              ]}
               selected={selectedPreset === 'high'}
               onClick={() => setSelectedPreset('high')}
             />
@@ -83,6 +102,13 @@ export function AutoOptimize() {
           >
             {applying ? '適用中...' : '設定を適用する'}
           </button>
+
+          {/* スキップオプション */}
+          <div className="text-center pt-2">
+            <button className="text-gray-500 hover:text-gray-700 text-sm underline">
+              あとで自分で設定する（スキップ）
+            </button>
+          </div>
         </div>
       )}
 
@@ -114,15 +140,6 @@ export function AutoOptimize() {
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
-
-      {/* スキップオプション */}
-      {!result && (
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            後からでも設定を変更できます
-          </p>
-        </div>
-      )}
     </div>
   );
 }
@@ -135,38 +152,68 @@ interface PresetOptionProps {
   preset: OptimizationPreset;
   label: string;
   description: string;
+  details: string[];
   selected: boolean;
   onClick: () => void;
 }
 
-function PresetOption({ label, description, selected, onClick }: PresetOptionProps) {
+function PresetOption({ label, description, details, selected, onClick }: PresetOptionProps) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <button
-      onClick={onClick}
+    <div
       className={`
-        w-full p-4 rounded-lg border-2 text-left transition-all
+        w-full rounded-lg border-2 transition-all
         ${
           selected
             ? 'border-blue-500 bg-blue-50'
             : 'border-gray-200 bg-white hover:border-gray-300'
         }
       `}
-      aria-pressed={selected}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-            selected ? 'border-blue-500' : 'border-gray-300'
-          }`}
-        >
-          {selected && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+      <button
+        onClick={onClick}
+        className="w-full p-4 text-left"
+        aria-pressed={selected}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+              selected ? 'border-blue-500' : 'border-gray-300'
+            }`}
+          >
+            {selected && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+          </div>
+          <div className="flex-1">
+            <h4 className="font-semibold text-gray-900">{label}</h4>
+            <p className="text-sm text-gray-600">{description}</p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800 px-2"
+          >
+            {expanded ? '閉じる' : '詳細'}
+          </button>
         </div>
-        <div className="flex-1">
-          <h4 className="font-semibold text-gray-900">{label}</h4>
-          <p className="text-sm text-gray-600">{description}</p>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-gray-200 mt-2 pt-3">
+          <p className="text-xs font-medium text-gray-700 mb-2">この設定で適用される内容:</p>
+          <ul className="space-y-1">
+            {details.map((detail, index) => (
+              <li key={index} className="text-xs text-gray-600 flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>{detail}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 

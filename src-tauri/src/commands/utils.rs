@@ -5,6 +5,26 @@
 use crate::monitor::{get_cpu_core_count, get_memory_info};
 use crate::monitor::gpu::get_gpu_info;
 use crate::services::optimizer::HardwareInfo;
+use sysinfo::System;
+
+/// CPUモデル名を取得
+///
+/// # Returns
+/// CPUブランド名（取得できない場合は"Unknown CPU"）
+fn get_cpu_model_name() -> String {
+    let mut sys = System::new();
+    sys.refresh_all();
+
+    let cpus = sys.cpus();
+    if let Some(cpu) = cpus.first() {
+        let brand = cpu.brand().trim();
+        if !brand.is_empty() {
+            return brand.to_string();
+        }
+    }
+
+    "Unknown CPU".to_string()
+}
 
 /// ハードウェア情報を取得（共通関数）
 ///
@@ -19,7 +39,7 @@ pub async fn get_hardware_info() -> HardwareInfo {
     let gpu_info = get_gpu_info().await;
 
     HardwareInfo {
-        cpu_name: "CPU".to_string(), // TODO: 実際のCPU名を取得
+        cpu_name: get_cpu_model_name(),
         cpu_cores,
         total_memory_gb,
         gpu: gpu_info,

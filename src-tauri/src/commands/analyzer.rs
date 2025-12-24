@@ -47,6 +47,32 @@ pub struct AnalysisResult {
     pub system_info: SystemInfo,
     /// 分析日時（Unixタイムスタンプ）
     pub analyzed_at: i64,
+    /// 初心者向けサマリー
+    pub summary: AnalysisSummary,
+}
+
+/// 分析サマリー（初心者向け）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisSummary {
+    /// 初心者向けの一言説明
+    pub headline: String,
+    /// 推奨プリセット（low/medium/high/ultra）
+    pub recommended_preset: String,
+    /// 主要な推奨値（キー項目のみ）
+    pub key_recommendations: Vec<KeyRecommendation>,
+}
+
+/// 主要な推奨項目（初心者向け）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyRecommendation {
+    /// 項目ラベル
+    pub label: String,
+    /// 推奨値
+    pub value: String,
+    /// 初心者向けの簡潔な理由
+    pub reason_simple: String,
 }
 
 /// OBS設定項目
@@ -241,12 +267,20 @@ pub async fn analyze_settings() -> Result<AnalysisResult, AppError> {
     // 品質スコアを取得
     let quality_score = recommendations.overall_score;
 
+    // 初心者向けサマリーを生成
+    let summary = generate_analysis_summary(
+        &hardware_info,
+        &recommendations,
+        quality_score,
+    );
+
     Ok(AnalysisResult {
         quality_score,
         issue_count: recommendation_list.len(),
         recommendations: recommendation_list,
         system_info,
         analyzed_at: chrono::Utc::now().timestamp(),
+        summary,
     })
 }
 
@@ -288,6 +322,120 @@ fn calculate_overall_score(problems: &[ProblemReport]) -> f64 {
     }
 
     score.clamp(0.0, 100.0)
+}
+
+/// 初心者向け分析サマリーを生成
+///
+/// # Arguments
+/// * `hardware` - ハードウェア情報
+/// * `recommendations` - 推奨設定
+/// * `quality_score` - 品質スコア（0-100）
+///
+/// # Returns
+/// 初心者向けのわかりやすいサマリー
+fn generate_analysis_summary(
+    hardware: &crate::services::optimizer::HardwareInfo,
+    recommendations: &crate::services::optimizer::RecommendedSettings,
+    _quality_score: u8,
+) -> AnalysisSummary {
+    // GPU名を取得（わかりやすく短縮）
+    let gpu_name = hardware.gpu.as_ref()
+        .map(|g| {
+            // NVIDIA GeForce RTX 3060 -> RTX 3060
+            let name = &g.name;
+            if name.contains("RTX") {
+                name.split("RTX").nth(1)
+                    .map(|s| format!("RTX{}", s.trim()))
+                    .unwrap_or_else(|| name.clone())
+            } else if name.contains("GTX") {
+                name.split("GTX").nth(1)
+                    .map(|s| format!("GTX{}", s.trim()))
+                    .unwrap_or_else(|| name.clone())
+            } else if name.contains("AMD") || name.contains("Radeon") {
+                name.replace("AMD ", "").replace("Radeon ", "")
+            } else {
+                name.clone()
+            }
+        })
+        .unwrap_or_else(|| "統合GPU".to_string());
+
+    // 推奨プリセットを決定（low/medium/high/ultra）
+    let recommended_preset = if hardware.cpu_cores < 4 || hardware.gpu.is_none() {
+        "low"
+    } else if hardware.cpu_cores < 8 {
+        "medium"
+    } else if hardware.gpu.is_some() && hardware.cpu_cores >= 8 {
+        "high"
+    } else {
+        "ultra"
+    };
+
+    // ヘッドラインを生成
+    let headline = format!(
+        "あなたのPC（{}）なら、{}p {}fpsで快適に配信できます",
+        gpu_name,
+        if recommendations.video.output_height >= 1080 { "1080" } else { "720" },
+        recommendations.video.fps
+    );
+
+    // 主要な推奨項目を抽出
+    let mut key_recommendations = Vec::new();
+
+    // 解像度
+    key_recommendations.push(KeyRecommendation {
+        label: "解像度".to_string(),
+        value: format!("{}x{}", recommendations.video.output_width, recommendations.video.output_height),
+        reason_simple: if recommendations.video.output_height >= 1080 {
+            "お使いのGPUで高画質配信が可能です".to_string()
+        } else {
+            "安定した配信のため720pを推奨".to_string()
+        },
+    });
+
+    // FPS
+    key_recommendations.push(KeyRecommendation {
+        label: "フレームレート".to_string(),
+        value: format!("{}fps", recommendations.video.fps),
+        reason_simple: if recommendations.video.fps >= 60 {
+            "滑らかな映像で視聴者に快適な体験を".to_string()
+        } else {
+            "動きの少ない配信なら30fpsで十分".to_string()
+        },
+    });
+
+    // ビットレート
+    key_recommendations.push(KeyRecommendation {
+        label: "ビットレート".to_string(),
+        value: format!("{}kbps", recommendations.output.bitrate_kbps),
+        reason_simple: "ネットワーク速度に最適化".to_string(),
+    });
+
+    // エンコーダー
+    let encoder_label = if recommendations.output.encoder.contains("nvenc") {
+        "NVIDIA NVENC"
+    } else if recommendations.output.encoder.contains("amd") || recommendations.output.encoder.contains("amf") {
+        "AMD VCE"
+    } else if recommendations.output.encoder.contains("qsv") {
+        "Intel QuickSync"
+    } else {
+        "CPU (x264)"
+    };
+
+    key_recommendations.push(KeyRecommendation {
+        label: "エンコーダー".to_string(),
+        value: encoder_label.to_string(),
+        reason_simple: if encoder_label.contains("CPU") {
+            "CPU負荷が高めです。GPU搭載PCの場合はハードウェアエンコーダー推奨".to_string()
+        } else {
+            "GPU使用でCPU負荷を軽減".to_string()
+        },
+    });
+
+    AnalysisSummary {
+        headline,
+        recommended_preset: recommended_preset.to_string(),
+        key_recommendations,
+    }
 }
 
 

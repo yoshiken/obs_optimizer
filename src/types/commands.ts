@@ -338,6 +338,28 @@ export interface AnalysisResult {
   systemInfo: SystemInfo;
   /** 分析日時 */
   analyzedAt: number;
+  /** 初心者向けサマリー */
+  summary: AnalysisSummary;
+}
+
+/** 分析サマリー（初心者向け） */
+export interface AnalysisSummary {
+  /** 初心者向けの一言説明 */
+  headline: string;
+  /** 推奨プリセット（low/medium/high/ultra） */
+  recommendedPreset: 'low' | 'medium' | 'high' | 'ultra';
+  /** 主要な推奨値（キー項目のみ） */
+  keyRecommendations: KeyRecommendation[];
+}
+
+/** 主要な推奨項目（初心者向け） */
+export interface KeyRecommendation {
+  /** 項目ラベル */
+  label: string;
+  /** 推奨値 */
+  value: string;
+  /** 初心者向けの簡潔な理由 */
+  reasonSimple: string;
 }
 
 /** 最適化適用結果 */
