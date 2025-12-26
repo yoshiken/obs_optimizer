@@ -3,7 +3,13 @@
 // ハードウェア情報とユーザー設定からエンコーダーを選択
 // obs_guide.mdの判定ロジックに基づく
 
-use super::gpu_detection::{CpuTier, GpuEncoderCapability, GpuGeneration, GpuTier, get_encoder_capability, adjust_preset_for_tier};
+use super::gpu_detection::{
+    CpuTier, EffectiveTier, GpuEncoderCapability, GpuGeneration, GpuGrade,
+    adjust_preset_for_effective_tier, calculate_effective_tier, get_encoder_capability,
+    should_enable_multipass,
+};
+// 後方互換性のためのエイリアス
+pub use super::gpu_detection::GpuTier;
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use serde::{Deserialize, Serialize};
 
@@ -38,10 +44,10 @@ pub struct RecommendedEncoder {
 /// エンコーダー選択コンテキスト
 #[derive(Debug, Clone)]
 pub struct EncoderSelectionContext {
-    /// GPU世代
+    /// GPU世代（アーキテクチャ）
     pub gpu_generation: GpuGeneration,
-    /// GPUティア（同一世代内での性能差）
-    pub gpu_tier: GpuTier,
+    /// GPU性能グレード（xx90/xx80/xx70等）
+    pub gpu_grade: GpuGrade,
     /// CPUティア
     pub cpu_tier: CpuTier,
     /// 配信プラットフォーム
@@ -52,6 +58,13 @@ pub struct EncoderSelectionContext {
     /// ネットワーク速度（Mbps）
     #[allow(dead_code)]
     pub network_speed_mbps: f64,
+}
+
+impl EncoderSelectionContext {
+    /// 統合ティアを計算
+    pub fn effective_tier(&self) -> EffectiveTier {
+        calculate_effective_tier(self.gpu_generation, self.gpu_grade)
+    }
 }
 
 /// エンコーダー選択エンジン
@@ -174,6 +187,9 @@ impl EncoderSelector {
         let capability = get_encoder_capability(context.gpu_generation)
             .unwrap_or(&default_capability);
 
+        // 統合ティアを算出
+        let effective_tier = context.effective_tier();
+
         let b_frames = if capability.b_frames { Some(2) } else { None };
 
         // Turing以降は高品質機能を有効化
@@ -189,18 +205,13 @@ impl EncoderSelector {
             GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaAda
         );
 
-        // マルチパスモード: ティアに応じて調整
-        // ハイエンド以上: quarter_res（高品質）
-        // ミドル以下: disabled（負荷軽減）
-        let multipass_mode = match context.gpu_generation {
-            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaTuring => {
-                match context.gpu_tier {
-                    GpuTier::Flagship | GpuTier::HighEnd | GpuTier::UpperMid => "quarter_res".to_string(),
-                    GpuTier::Mid | GpuTier::Entry => "disabled".to_string(),
-                    GpuTier::Unknown => "quarter_res".to_string(), // 安全側
-                }
-            }
-            _ => "disabled".to_string(),
+        // マルチパスモード: 統合ティアに応じて調整
+        // TierS/A/B: quarter_res（高品質）
+        // TierC以下: disabled（負荷軽減）
+        let multipass_mode = if should_enable_multipass(effective_tier) {
+            "quarter_res".to_string()
+        } else {
+            "disabled".to_string()
         };
 
         // チューニング: 高品質設定を推奨
@@ -211,26 +222,28 @@ impl EncoderSelector {
             _ => None,
         };
 
-        // プリセットをティアに応じて調整
+        // プリセットを統合ティアに応じて調整
         let base_preset: u8 = capability.recommended_preset
             .trim_start_matches('p')
             .parse()
             .unwrap_or(5);
-        let adjusted_preset = adjust_preset_for_tier(base_preset, context.gpu_tier);
+        let adjusted_preset = adjust_preset_for_effective_tier(base_preset, effective_tier);
         let preset_string = format!("p{}", adjusted_preset);
 
         // ティア情報を理由に追加
-        let tier_note = match context.gpu_tier {
-            GpuTier::Flagship | GpuTier::HighEnd => "".to_string(),
-            GpuTier::UpperMid => "（アッパーミドルモデルのためプリセットを1段階調整）".to_string(),
-            GpuTier::Mid => "（ミドルモデルのためプリセットを1段階調整）".to_string(),
-            GpuTier::Entry => "（エントリーモデルのためプリセットを2段階調整）".to_string(),
-            GpuTier::Unknown => "".to_string(),
+        let tier_note = match effective_tier {
+            EffectiveTier::TierS => "（最高性能）".to_string(),
+            EffectiveTier::TierA => "（高性能）".to_string(),
+            EffectiveTier::TierB => "（中上位、プリセット1段階調整）".to_string(),
+            EffectiveTier::TierC => "（中位、プリセット1段階調整）".to_string(),
+            EffectiveTier::TierD => "（下位、プリセット2段階調整）".to_string(),
+            EffectiveTier::TierE => "（エントリー、プリセット3段階調整）".to_string(),
         };
 
         let reason = format!(
-            "{}を検出。NVENCエンコーダーはCPU負荷をほぼゼロにし、{}相当の品質を実現します{}",
+            "{}（{}グレード）を検出。NVENCはCPU負荷ゼロで{}相当の品質{}",
             Self::gpu_display_name(context.gpu_generation),
+            Self::grade_display_name(context.gpu_grade),
             capability.quality_equivalent,
             tier_note
         );
@@ -247,6 +260,18 @@ impl EncoderSelector {
             tuning,
             profile: "high".to_string(),
             reason,
+        }
+    }
+
+    /// グレードの表示名を取得
+    fn grade_display_name(grade: GpuGrade) -> &'static str {
+        match grade {
+            GpuGrade::Flagship => "フラグシップ",
+            GpuGrade::HighEnd => "ハイエンド",
+            GpuGrade::UpperMid => "アッパーミドル",
+            GpuGrade::Mid => "ミドル",
+            GpuGrade::Entry => "エントリー",
+            GpuGrade::Unknown => "不明",
         }
     }
 
@@ -414,7 +439,7 @@ mod tests {
     ) -> EncoderSelectionContext {
         EncoderSelectionContext {
             gpu_generation: gpu_gen,
-            gpu_tier: GpuTier::HighEnd, // デフォルトはハイエンド
+            gpu_grade: GpuGrade::HighEnd, // デフォルトはハイエンド
             cpu_tier,
             platform: StreamingPlatform::YouTube,
             style: StreamingStyle::Gaming,
@@ -422,14 +447,14 @@ mod tests {
         }
     }
 
-    fn create_test_context_with_tier(
+    fn create_test_context_with_grade(
         gpu_gen: GpuGeneration,
-        gpu_tier: GpuTier,
+        gpu_grade: GpuGrade,
         cpu_tier: CpuTier,
     ) -> EncoderSelectionContext {
         EncoderSelectionContext {
             gpu_generation: gpu_gen,
-            gpu_tier,
+            gpu_grade,
             cpu_tier,
             platform: StreamingPlatform::YouTube,
             style: StreamingStyle::Gaming,
@@ -439,10 +464,11 @@ mod tests {
 
     #[test]
     fn test_select_nvenc_ada() {
+        // Ada + HighEnd(デフォルト) = TierS → AV1エンコーダが選択される
         let context = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
         let encoder = EncoderSelector::select_encoder(&context);
 
-        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
+        assert_eq!(encoder.encoder_id, "jim_av1_nvenc"); // Ada世代はAV1対応
         assert_eq!(encoder.preset, "p7");
         assert!(encoder.psycho_visual_tuning);
         assert!(encoder.look_ahead);
@@ -451,11 +477,12 @@ mod tests {
 
     #[test]
     fn test_select_nvenc_turing() {
+        // Turing + HighEnd(デフォルト) = TierB → プリセット-1
         let context = create_test_context(GpuGeneration::NvidiaTuring, CpuTier::Middle);
         let encoder = EncoderSelector::select_encoder(&context);
 
         assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
-        assert_eq!(encoder.preset, "p5");
+        assert_eq!(encoder.preset, "p4"); // TierB: p5→p4
         assert!(encoder.psycho_visual_tuning);
         assert!(!encoder.look_ahead); // Turingはlook-aheadなし
         assert_eq!(encoder.b_frames, Some(2));
@@ -463,11 +490,12 @@ mod tests {
 
     #[test]
     fn test_select_nvenc_pascal() {
+        // Pascal + HighEnd(デフォルト) = TierC → プリセット-1
         let context = create_test_context(GpuGeneration::NvidiaPascal, CpuTier::Middle);
         let encoder = EncoderSelector::select_encoder(&context);
 
         assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
-        assert_eq!(encoder.preset, "p4");
+        assert_eq!(encoder.preset, "p3"); // TierC: p4→p3
         assert!(!encoder.psycho_visual_tuning);
         assert_eq!(encoder.b_frames, None); // PascalはBフレームなし
     }
@@ -502,11 +530,12 @@ mod tests {
 
     #[test]
     fn test_select_intel_arc() {
+        // Intel Arc + HighEnd(デフォルト) = TierA → AV1エンコーダが選択される
         let context = create_test_context(GpuGeneration::IntelArc, CpuTier::Middle);
         let encoder = EncoderSelector::select_encoder(&context);
 
-        assert_eq!(encoder.encoder_id, "obs_qsv11");
-        assert_eq!(encoder.preset, "balanced");
+        assert_eq!(encoder.encoder_id, "obs_qsv11_av1"); // Intel ArcはAV1対応
+        assert_eq!(encoder.preset, "p7");
     }
 
     #[test]
@@ -636,66 +665,102 @@ mod tests {
         }
     }
 
-    // === GPUティア別テスト ===
+    // === 統合ティア別テスト ===
 
     #[test]
-    fn test_gpu_tier_preset_adjustment_flagship() {
-        // RTX 4090（フラグシップ）はP7のまま
-        let mut context = create_test_context_with_tier(
+    fn test_effective_tier_s_flagship_ada() {
+        // RTX 4090（Ada + Flagship）= TierS → P7のまま
+        let mut context = create_test_context_with_grade(
             GpuGeneration::NvidiaAda,
-            GpuTier::Flagship,
+            GpuGrade::Flagship,
             CpuTier::Middle,
         );
         context.platform = StreamingPlatform::Twitch; // H.264を使用するためTwitch
         let encoder = EncoderSelector::select_encoder(&context);
 
-        assert_eq!(encoder.preset, "p7", "フラグシップはP7のまま");
-        assert_eq!(encoder.multipass_mode, "quarter_res", "フラグシップはマルチパス有効");
+        assert_eq!(context.effective_tier(), EffectiveTier::TierS);
+        assert_eq!(encoder.preset, "p7", "TierSはP7のまま");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierSはマルチパス有効");
     }
 
     #[test]
-    fn test_gpu_tier_preset_adjustment_mid() {
-        // RTX 4060（ミドル）はP6に調整
-        let mut context = create_test_context_with_tier(
+    fn test_effective_tier_a_mid_ada() {
+        // RTX 4060（Ada + Mid）= TierA → P7のまま
+        let mut context = create_test_context_with_grade(
             GpuGeneration::NvidiaAda,
-            GpuTier::Mid,
+            GpuGrade::Mid,
             CpuTier::Middle,
         );
         context.platform = StreamingPlatform::Twitch;
         let encoder = EncoderSelector::select_encoder(&context);
 
-        assert_eq!(encoder.preset, "p6", "ミドルはP7→P6に調整");
-        assert_eq!(encoder.multipass_mode, "disabled", "ミドルはマルチパス無効");
-        assert!(encoder.reason.contains("ミドルモデル"));
+        assert_eq!(context.effective_tier(), EffectiveTier::TierA);
+        assert_eq!(encoder.preset, "p7", "TierAはP7のまま");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierAはマルチパス有効");
     }
 
     #[test]
-    fn test_gpu_tier_preset_adjustment_entry() {
-        // RTX 3050（エントリー）はP4に調整（P6から-2）
-        let mut context = create_test_context_with_tier(
-            GpuGeneration::NvidiaAmpere,
-            GpuTier::Entry,
+    fn test_effective_tier_b_entry_ada() {
+        // RTX 4050（Ada + Entry）= TierB → P6に調整
+        let mut context = create_test_context_with_grade(
+            GpuGeneration::NvidiaAda,
+            GpuGrade::Entry,
             CpuTier::Middle,
         );
         context.platform = StreamingPlatform::Twitch;
         let encoder = EncoderSelector::select_encoder(&context);
 
-        assert_eq!(encoder.preset, "p4", "エントリーはP6→P4に調整");
-        assert_eq!(encoder.multipass_mode, "disabled", "エントリーはマルチパス無効");
-        assert!(encoder.reason.contains("エントリーモデル"));
+        assert_eq!(context.effective_tier(), EffectiveTier::TierB);
+        assert_eq!(encoder.preset, "p6", "TierBはP7→P6に調整");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierBはマルチパス有効");
     }
 
     #[test]
-    fn test_gpu_tier_comparison_same_generation() {
-        // 同一世代でもティアが異なればプリセットが異なる
-        let flagship = create_test_context_with_tier(
+    fn test_effective_tier_c_entry_ampere() {
+        // RTX 3050（Ampere + Entry）= TierC → P5に調整
+        let mut context = create_test_context_with_grade(
             GpuGeneration::NvidiaAmpere,
-            GpuTier::Flagship, // RTX 3090
+            GpuGrade::Entry,
             CpuTier::Middle,
         );
-        let entry = create_test_context_with_tier(
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(context.effective_tier(), EffectiveTier::TierC);
+        assert_eq!(encoder.preset, "p5", "TierCはP6→P5に調整");
+        assert_eq!(encoder.multipass_mode, "disabled", "TierCはマルチパス無効");
+    }
+
+    #[test]
+    fn test_effective_tier_comparison_cross_generation() {
+        // RTX 3090（Ampere Flagship）とRTX 4060（Ada Mid）は同じTierA
+        let ampere_flagship = create_test_context_with_grade(
             GpuGeneration::NvidiaAmpere,
-            GpuTier::Entry, // RTX 3050
+            GpuGrade::Flagship, // RTX 3090
+            CpuTier::Middle,
+        );
+        let ada_mid = create_test_context_with_grade(
+            GpuGeneration::NvidiaAda,
+            GpuGrade::Mid, // RTX 4060
+            CpuTier::Middle,
+        );
+
+        // 両方ともTierA
+        assert_eq!(ampere_flagship.effective_tier(), EffectiveTier::TierA);
+        assert_eq!(ada_mid.effective_tier(), EffectiveTier::TierA);
+    }
+
+    #[test]
+    fn test_effective_tier_comparison_same_generation() {
+        // 同一世代でもグレードが異なれば統合ティアが異なる
+        let flagship = create_test_context_with_grade(
+            GpuGeneration::NvidiaAmpere,
+            GpuGrade::Flagship, // RTX 3090 → TierA
+            CpuTier::Middle,
+        );
+        let entry = create_test_context_with_grade(
+            GpuGeneration::NvidiaAmpere,
+            GpuGrade::Entry, // RTX 3050 → TierC
             CpuTier::Middle,
         );
 
@@ -716,16 +781,17 @@ mod tests {
 
     #[test]
     fn test_preset_minimum_clamp() {
-        // プリセットがP1より下にならないことを確認
-        let context = create_test_context_with_tier(
+        // TierE（Pascal + Entry）でもP1まで下がる
+        let context = create_test_context_with_grade(
             GpuGeneration::NvidiaPascal, // 基本P4
-            GpuTier::Entry,              // -2調整
+            GpuGrade::Entry,              // TierE: -3調整
             CpuTier::Middle,
         );
         let mut ctx = context;
         ctx.platform = StreamingPlatform::Twitch;
-        let encoder = EncoderSelector::select_encoder(&ctx);
 
-        assert_eq!(encoder.preset, "p2", "P4-2=P2に調整（P1未満にはならない）");
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierE);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+        assert_eq!(encoder.preset, "p1", "P4-3=P1に調整（P1未満にはならない）");
     }
 }

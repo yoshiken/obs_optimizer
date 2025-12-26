@@ -6,7 +6,7 @@
 use crate::obs::ObsSettings;
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use crate::monitor::gpu::GpuInfo;
-use super::gpu_detection::{detect_gpu_generation, detect_gpu_tier, determine_cpu_tier, GpuGeneration, GpuTier};
+use super::gpu_detection::{detect_gpu_generation, detect_gpu_grade, determine_cpu_tier, GpuGeneration, GpuGrade};
 use super::encoder_selector::{EncoderSelector, EncoderSelectionContext};
 use serde::{Deserialize, Serialize};
 
@@ -293,11 +293,11 @@ impl RecommendationEngine {
         network_speed_mbps: f64,
         reasons: &mut Vec<String>,
     ) -> String {
-        // GPU世代とティアを判定
-        let (gpu_generation, gpu_tier) = if let Some(gpu) = &hardware.gpu {
-            (detect_gpu_generation(&gpu.name), detect_gpu_tier(&gpu.name))
+        // GPU世代とグレードを判定
+        let (gpu_generation, gpu_grade) = if let Some(gpu) = &hardware.gpu {
+            (detect_gpu_generation(&gpu.name), detect_gpu_grade(&gpu.name))
         } else {
-            (GpuGeneration::None, GpuTier::Unknown)
+            (GpuGeneration::None, GpuGrade::Unknown)
         };
 
         // CPUティアを判定
@@ -306,7 +306,7 @@ impl RecommendationEngine {
         // エンコーダー選択コンテキストを構築
         let context = EncoderSelectionContext {
             gpu_generation,
-            gpu_tier,
+            gpu_grade,
             cpu_tier,
             platform,
             style,
@@ -445,11 +445,11 @@ impl RecommendationEngine {
         style: StreamingStyle,
         network_speed_mbps: f64,
     ) -> String {
-        // GPU世代とティアを判定
-        let (gpu_generation, gpu_tier) = if let Some(gpu) = &hardware.gpu {
-            (detect_gpu_generation(&gpu.name), detect_gpu_tier(&gpu.name))
+        // GPU世代とグレードを判定
+        let (gpu_generation, gpu_grade) = if let Some(gpu) = &hardware.gpu {
+            (detect_gpu_generation(&gpu.name), detect_gpu_grade(&gpu.name))
         } else {
-            (GpuGeneration::None, GpuTier::Unknown)
+            (GpuGeneration::None, GpuGrade::Unknown)
         };
 
         // CPUティアを判定
@@ -458,7 +458,7 @@ impl RecommendationEngine {
         // エンコーダー選択コンテキストを構築
         let context = EncoderSelectionContext {
             gpu_generation,
-            gpu_tier,
+            gpu_grade,
             cpu_tier,
             platform,
             style,
@@ -605,13 +605,14 @@ mod tests {
             1.0,
         );
 
-        // 1Mbps * 1000 * 0.8 = 800kbps が上限
-        assert!(recommended.output.bitrate_kbps <= 800,
-            "ネットワーク速度制限によりビットレートが制限される: {}",
+        // 最低ビットレート2000kbpsが保証される
+        // network_limit = 1.0 * 1000 * 0.8 = 800だが、min_bitrate=2000で底上げ
+        assert_eq!(recommended.output.bitrate_kbps, 2000,
+            "最低ビットレートが適用される: {}",
             recommended.output.bitrate_kbps);
         assert!(
-            recommended.reasons.iter().any(|r| r.contains("ネットワーク速度")),
-            "ネットワーク速度による制限の理由が含まれる"
+            recommended.reasons.iter().any(|r| r.contains("回線速度")),
+            "回線速度による制限の理由が含まれる"
         );
     }
 
