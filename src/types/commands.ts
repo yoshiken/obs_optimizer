@@ -512,6 +512,12 @@ export interface RecommendedEncoder {
   bFrames: number | null;
   lookAhead: boolean;
   psychoVisualTuning: boolean;
+  /** マルチパスモード（NVENC: "disabled", "quarter_res", "full_res"） */
+  multipassMode: string;
+  /** チューニング設定（NVENC: "hq", "ll", "ull" / x264: "film", "animation"等） */
+  tuning: string | null;
+  /** H.264プロファイル（"baseline", "main", "high"） */
+  profile: string;
   reason: string;
 }
 

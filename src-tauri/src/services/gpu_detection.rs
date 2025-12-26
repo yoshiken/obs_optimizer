@@ -78,6 +78,12 @@ struct GpuDetectionPattern {
 
 /// GPU判定パターン定義テーブル
 const GPU_PATTERNS: &[GpuDetectionPattern] = &[
+    // NVIDIA Blackwell (RTX 50シリーズ) - Ada以上の能力を持つためAdaとして扱う
+    GpuDetectionPattern {
+        keywords: &["rtx 50", "rtx50", "5090", "5080", "5070", "5060"],
+        exclude_keywords: &[],
+        generation: GpuGeneration::NvidiaAda, // Blackwellは Ada 以上の能力
+    },
     // NVIDIA Ada Lovelace (RTX 40シリーズ)
     GpuDetectionPattern {
         keywords: &["rtx 40", "rtx40", "4090", "4080", "4070", "4060"],
@@ -288,6 +294,23 @@ mod tests {
         );
         assert_eq!(
             detect_gpu_generation("RTX 4080"),
+            GpuGeneration::NvidiaAda
+        );
+    }
+
+    #[test]
+    fn test_detect_nvidia_blackwell() {
+        // RTX 50シリーズ（Blackwell）はAda相当として扱う
+        assert_eq!(
+            detect_gpu_generation("NVIDIA GeForce RTX 5090"),
+            GpuGeneration::NvidiaAda
+        );
+        assert_eq!(
+            detect_gpu_generation("RTX 5080"),
+            GpuGeneration::NvidiaAda
+        );
+        assert_eq!(
+            detect_gpu_generation("GeForce RTX 5070 Ti"),
             GpuGeneration::NvidiaAda
         );
     }

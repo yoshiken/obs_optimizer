@@ -319,22 +319,59 @@ impl RecommendationEngine {
         network_speed_mbps: f64,
         reasons: &mut Vec<String>,
     ) -> u32 {
+        // 回線速度による分類（参考: https://castcraft.live/blog/178/）
+        // - 5Mbps未満: 回線弱い → 2,000〜3,000kbps推奨
+        // - 5〜10Mbps: 中程度 → 4,000〜6,000kbps推奨
+        // - 10Mbps以上: 十分 → 高画質設定可能
+
         // プラットフォーム最大値に補正係数を適用
         let ideal_bitrate = (f64::from(preset.max_bitrate) * modifier.bitrate_multiplier) as u32;
 
         // ネットワーク速度の80%を上限とする（安全マージン）
         let network_limit = (network_speed_mbps * 1000.0 * 0.8) as u32;
 
-        // プラットフォーム最大値を超えないようにする
-        let recommended = ideal_bitrate.min(network_limit).min(preset.max_bitrate);
+        // 最低ビットレート（2000kbps）を保証
+        let min_bitrate = 2000u32;
 
-        if recommended < ideal_bitrate {
+        // 回線が弱い場合の調整
+        let recommended = if network_speed_mbps < 3.0 {
+            // 超低速回線: 2,000〜2,500kbps
+            let limited = 2500.min(network_limit).max(min_bitrate);
             reasons.push(format!(
-                "ネットワーク速度またはプラットフォームの制限により、ビットレートを{recommended}kbpsに調整しました"
+                "回線速度が非常に遅い（{:.1}Mbps）ため、ビットレートを{}kbpsに制限。720p30fps推奨",
+                network_speed_mbps, limited
             ));
-        }
+            limited
+        } else if network_speed_mbps < 5.0 {
+            // 低速回線: 2,500〜3,500kbps
+            let limited = 3500.min(network_limit).max(min_bitrate);
+            reasons.push(format!(
+                "回線速度が低め（{:.1}Mbps）のため、ビットレートを{}kbpsに調整",
+                network_speed_mbps, limited
+            ));
+            limited
+        } else if network_speed_mbps < 10.0 {
+            // 中速回線: プラットフォーム推奨値の80%程度
+            let limited = (ideal_bitrate as f64 * 0.8) as u32;
+            let limited = limited.min(network_limit).min(preset.max_bitrate);
+            if limited < ideal_bitrate {
+                reasons.push(format!(
+                    "回線速度（{:.1}Mbps）に合わせてビットレートを{}kbpsに最適化",
+                    network_speed_mbps, limited
+                ));
+            }
+            limited
+        } else {
+            // 高速回線: 理想値を使用可能
+            let limited = ideal_bitrate.min(network_limit).min(preset.max_bitrate);
+            if network_speed_mbps >= 20.0 && limited >= 9000 {
+                reasons.push("高速回線を検出。9,000kbps以上で滑らかな高画質配信が可能です".to_string());
+            }
+            limited
+        };
 
-        recommended
+        // 最低ビットレートを保証
+        recommended.max(min_bitrate)
     }
 
     /// 解像度推奨

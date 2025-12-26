@@ -25,6 +25,12 @@ pub struct RecommendedEncoder {
     pub look_ahead: bool,
     /// Psycho Visual Tuning有効化（NVENC）
     pub psycho_visual_tuning: bool,
+    /// マルチパスモード（NVENC: "disabled", "quarter_res", "full_res"）
+    pub multipass_mode: String,
+    /// チューニング設定（NVENC: "hq", "ll", "ull" / x264: "film", "animation"等）
+    pub tuning: Option<String>,
+    /// H.264プロファイル（"baseline", "main", "high"）
+    pub profile: String,
     /// 選択理由
     pub reason: String,
 }
@@ -116,8 +122,24 @@ impl EncoderSelector {
             GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaAda
         );
 
+        // マルチパスモード: Turing以降は2パス(1/4解像度)で高品質化
+        // 参考: https://castcraft.live/blog/178/
+        let multipass_mode = match context.gpu_generation {
+            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere => "quarter_res".to_string(),
+            GpuGeneration::NvidiaTuring => "quarter_res".to_string(),
+            _ => "disabled".to_string(),
+        };
+
+        // チューニング: 高品質設定を推奨
+        let tuning = match context.gpu_generation {
+            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaTuring => {
+                Some("hq".to_string())
+            }
+            _ => None,
+        };
+
         let reason = format!(
-            "{}を検出。NVENCエンコーダーはCPU負荷をほぼゼロにし、{}相当の品質を実現します",
+            "{}を検出。NVENCエンコーダーはCPU負荷をほぼゼロにし、{}相当の品質を実現します。マルチパス2パスで高画質化",
             Self::gpu_display_name(context.gpu_generation),
             capability.quality_equivalent
         );
@@ -130,6 +152,9 @@ impl EncoderSelector {
             b_frames,
             look_ahead,
             psycho_visual_tuning,
+            multipass_mode,
+            tuning,
+            profile: "high".to_string(),
             reason,
         }
     }
@@ -160,11 +185,14 @@ impl EncoderSelector {
         RecommendedEncoder {
             encoder_id: "amd_amf_h264".to_string(),
             display_name: "AMD AMF H.264".to_string(),
-            preset: "default".to_string(),
+            preset: "quality".to_string(),
             rate_control: "CBR".to_string(),
             b_frames,
             look_ahead: false,
             psycho_visual_tuning: false,
+            multipass_mode: "disabled".to_string(),
+            tuning: None,
+            profile: "high".to_string(),
             reason,
         }
     }
@@ -177,8 +205,11 @@ impl EncoderSelector {
             preset: "balanced".to_string(),
             rate_control: "CBR".to_string(),
             b_frames: Some(2),
-            look_ahead: false,
+            look_ahead: true, // Intel Arcはlook-ahead対応
             psycho_visual_tuning: false,
+            multipass_mode: "disabled".to_string(),
+            tuning: None,
+            profile: "high".to_string(),
             reason: "Intel Arcを検出。QuickSyncは低ビットレートで優秀な品質を発揮します"
                 .to_string(),
         }
@@ -194,6 +225,9 @@ impl EncoderSelector {
             b_frames: Some(2),
             look_ahead: false,
             psycho_visual_tuning: false,
+            multipass_mode: "disabled".to_string(),
+            tuning: None,
+            profile: "main".to_string(), // 内蔵GPUは互換性重視でmain
             reason: "Intel内蔵GPUを検出。QuickSyncでCPU負荷を軽減できます".to_string(),
         }
     }
@@ -214,14 +248,25 @@ impl EncoderSelector {
             }
         };
 
+        // x264のチューニング: ゲーム配信向けにzerolatencyを検討するが
+        // 品質重視の場合はNone（デフォルト）を使用
+        // 参考: https://castcraft.live/blog/107/
+        let tuning = match context.cpu_tier {
+            CpuTier::Entry => Some("zerolatency".to_string()), // 低遅延優先
+            _ => None, // 品質優先
+        };
+
         RecommendedEncoder {
             encoder_id: "obs_x264".to_string(),
             display_name: "x264 (CPU)".to_string(),
             preset,
             rate_control: "CBR".to_string(),
-            b_frames: None, // x264はプリセットで自動設定
+            b_frames: Some(2), // x264はBフレーム使用可能
             look_ahead: false,
             psycho_visual_tuning: false,
+            multipass_mode: "disabled".to_string(),
+            tuning,
+            profile: "high".to_string(),
             reason,
         }
     }
