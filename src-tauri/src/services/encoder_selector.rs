@@ -65,12 +65,24 @@ impl EncoderSelector {
     /// # Returns
     /// 推奨エンコーダー情報
     pub fn select_encoder(context: &EncoderSelectionContext) -> RecommendedEncoder {
+        // プラットフォーム別の制約を確認
+        let platform_supports_av1 = matches!(context.platform, StreamingPlatform::YouTube);
+        let platform_supports_hevc = matches!(
+            context.platform,
+            StreamingPlatform::YouTube | StreamingPlatform::TwitCasting
+        );
+
         // GPU世代に基づく判定
         match context.gpu_generation {
             GpuGeneration::NvidiaAda
             | GpuGeneration::NvidiaAmpere
             | GpuGeneration::NvidiaTuring => {
-                Self::select_nvenc_encoder(context)
+                // YouTube かつ AV1対応GPUの場合はAV1を優先検討
+                if platform_supports_av1 && Self::gpu_supports_av1(context.gpu_generation) {
+                    Self::select_av1_encoder(context)
+                } else {
+                    Self::select_nvenc_encoder(context)
+                }
             }
             GpuGeneration::NvidiaPascal => {
                 // Pascal世代は品質が低いため、CPUがハイエンドならx264も検討
@@ -83,12 +95,66 @@ impl EncoderSelector {
             GpuGeneration::AmdVcn4 | GpuGeneration::AmdVcn3 => {
                 Self::select_amd_encoder(context)
             }
-            GpuGeneration::IntelArc => Self::select_intel_arc_encoder(context),
+            GpuGeneration::IntelArc => {
+                // Intel ArcもAV1対応だが、YouTubeの場合のみ
+                if platform_supports_av1 {
+                    Self::select_av1_encoder(context)
+                } else {
+                    Self::select_intel_arc_encoder(context)
+                }
+            }
             GpuGeneration::IntelQuickSync => Self::select_quicksync_encoder(context),
             GpuGeneration::Unknown | GpuGeneration::None => {
                 // GPUがない、または不明の場合はCPUエンコード
                 Self::select_x264_encoder(context)
             }
+        }
+    }
+
+    /// GPUがAV1をサポートしているか確認
+    fn gpu_supports_av1(generation: GpuGeneration) -> bool {
+        if let Some(capability) = get_encoder_capability(generation) {
+            capability.av1
+        } else {
+            false
+        }
+    }
+
+    /// AV1 エンコーダーを選択
+    fn select_av1_encoder(context: &EncoderSelectionContext) -> RecommendedEncoder {
+        let encoder_id = match context.gpu_generation {
+            GpuGeneration::NvidiaAda => "jim_av1_nvenc", // NVIDIA AV1
+            GpuGeneration::IntelArc => "obs_qsv11_av1",  // Intel Arc AV1
+            _ => "ffmpeg_nvenc", // フォールバック: H.264
+        };
+
+        let is_av1 = matches!(
+            context.gpu_generation,
+            GpuGeneration::NvidiaAda | GpuGeneration::IntelArc
+        );
+
+        if is_av1 {
+            let reason = format!(
+                "{}を検出。AV1エンコーダーはYouTubeで高画質・低ビットレートを実現します。H.264の30%程度のビットレートで同等画質を達成可能",
+                Self::gpu_display_name(context.gpu_generation)
+            );
+
+            RecommendedEncoder {
+                encoder_id: encoder_id.to_string(),
+                display_name: "AV1 (Hardware)".to_string(),
+                preset: "p7".to_string(), // AV1は高品質プリセット推奨
+                rate_control: "CBR".to_string(),
+                b_frames: Some(2),
+                look_ahead: true,
+                psycho_visual_tuning: true,
+                multipass_mode: "quarter_res".to_string(),
+                tuning: Some("hq".to_string()),
+                profile: "main".to_string(), // AV1はmainプロファイル
+                reason,
+            }
+        } else {
+            // AV1非対応の場合はH.264にフォールバック
+            Self::select_nvenc_encoder(context)
         }
     }
 
@@ -460,6 +526,72 @@ mod tests {
             let context = create_test_context(gpu_gen, CpuTier::Middle);
             let encoder = EncoderSelector::select_encoder(&context);
             assert_eq!(encoder.rate_control, "CBR");
+        }
+    }
+
+    #[test]
+    fn test_av1_encoder_for_youtube() {
+        // YouTubeプラットフォームでRTX 40シリーズの場合はAV1推奨
+        let mut context = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
+        context.platform = StreamingPlatform::YouTube;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "jim_av1_nvenc");
+        assert!(encoder.reason.contains("AV1"));
+    }
+
+    #[test]
+    fn test_no_av1_for_twitch() {
+        // TwitchではAV1非対応のためH.264を使用
+        let mut context = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
+        assert!(!encoder.reason.contains("AV1"));
+    }
+
+    #[test]
+    fn test_av1_for_intel_arc_youtube() {
+        // Intel ArcでYouTubeの場合もAV1推奨
+        let mut context = create_test_context(GpuGeneration::IntelArc, CpuTier::Middle);
+        context.platform = StreamingPlatform::YouTube;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_qsv11_av1");
+        assert!(encoder.reason.contains("AV1"));
+    }
+
+    #[test]
+    fn test_h264_for_intel_arc_twitch() {
+        // Intel ArcでTwitchの場合はH.264
+        let mut context = create_test_context(GpuGeneration::IntelArc, CpuTier::Middle);
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_qsv11");
+    }
+
+    #[test]
+    fn test_platform_constraints() {
+        // プラットフォームごとのエンコーダー制約テスト
+        let test_cases = vec![
+            (StreamingPlatform::YouTube, GpuGeneration::NvidiaAda, "jim_av1_nvenc"),
+            (StreamingPlatform::Twitch, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
+            (StreamingPlatform::NicoNico, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
+            (StreamingPlatform::TwitCasting, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
+            (StreamingPlatform::Other, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
+        ];
+
+        for (platform, gpu_gen, expected_encoder) in test_cases {
+            let mut context = create_test_context(gpu_gen, CpuTier::Middle);
+            context.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&context);
+            assert_eq!(
+                encoder.encoder_id, expected_encoder,
+                "{:?}プラットフォームでの推奨エンコーダー",
+                platform
+            );
         }
     }
 }

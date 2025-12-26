@@ -119,6 +119,13 @@ impl PlatformPreset {
                 recommended_fps: 30,
                 keyframe_interval: 2,
             },
+            StreamingPlatform::TwitCasting => Self {
+                max_bitrate: 60000,
+                recommended_width: 1920,
+                recommended_height: 1080,
+                recommended_fps: 60,
+                keyframe_interval: 2,
+            },
             StreamingPlatform::Other => Self {
                 max_bitrate: 6000,
                 recommended_width: 1920,
@@ -221,7 +228,7 @@ impl RecommendationEngine {
         let recommended_fps = Self::recommend_fps(&preset, &modifier, hardware, &mut reasons);
 
         // 音声設定推奨
-        let audio_bitrate = Self::recommend_audio_bitrate(platform);
+        let audio_bitrate = Self::recommend_audio_bitrate(platform, style);
 
         // プリセット推奨（新ロジック）
         let preset_string = Self::recommend_preset(
@@ -409,12 +416,23 @@ impl RecommendationEngine {
     }
 
     /// 音声ビットレート推奨
-    fn recommend_audio_bitrate(platform: StreamingPlatform) -> u32 {
+    fn recommend_audio_bitrate(platform: StreamingPlatform, style: StreamingStyle) -> u32 {
+        // スタイルによる基本ビットレート
+        let base_bitrate = match style {
+            StreamingStyle::Music => 320,      // 歌・演奏は高音質
+            StreamingStyle::Gaming => 160,     // ゲームは標準
+            StreamingStyle::Talk => 128,       // 雑談は控えめ
+            StreamingStyle::Art => 160,        // お絵描きは標準
+            StreamingStyle::Other => 160,      // その他は標準
+        };
+
+        // プラットフォームによる調整
         match platform {
-            StreamingPlatform::YouTube => 160,
-            StreamingPlatform::Twitch => 160,
-            StreamingPlatform::NicoNico => 128,
-            StreamingPlatform::Other => 128,
+            StreamingPlatform::YouTube => base_bitrate,
+            StreamingPlatform::Twitch => base_bitrate.min(160), // Twitchは160kbps上限推奨
+            StreamingPlatform::NicoNico => base_bitrate.min(128), // ニコニコは128kbps推奨
+            StreamingPlatform::TwitCasting => base_bitrate, // ツイキャスは上限なし
+            StreamingPlatform::Other => base_bitrate.min(160),
         }
     }
 
@@ -724,6 +742,7 @@ mod tests {
             StreamingPlatform::YouTube,
             StreamingPlatform::Twitch,
             StreamingPlatform::NicoNico,
+            StreamingPlatform::TwitCasting,
             StreamingPlatform::Other,
         ] {
             let recommended = RecommendationEngine::calculate_recommendations(
@@ -905,22 +924,44 @@ mod tests {
         let hardware = create_test_hardware();
         let current = create_test_settings();
 
-        let youtube = RecommendationEngine::calculate_recommendations(
+        // ゲームスタイル - 160kbps
+        let youtube_gaming = RecommendationEngine::calculate_recommendations(
             &hardware,
             &current,
             StreamingPlatform::YouTube,
             StreamingStyle::Gaming,
             10.0,
         );
-        assert_eq!(youtube.audio.bitrate_kbps, 160, "YouTube音声ビットレート");
+        assert_eq!(youtube_gaming.audio.bitrate_kbps, 160, "YouTubeゲーム音声ビットレート");
 
-        let niconico = RecommendationEngine::calculate_recommendations(
+        // 音楽スタイル - 320kbps
+        let youtube_music = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Music,
+            10.0,
+        );
+        assert_eq!(youtube_music.audio.bitrate_kbps, 320, "YouTube音楽音声ビットレート");
+
+        // トークスタイル - 128kbps
+        let youtube_talk = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Talk,
+            10.0,
+        );
+        assert_eq!(youtube_talk.audio.bitrate_kbps, 128, "YouTubeトーク音声ビットレート");
+
+        // ニコニコは128kbps上限
+        let niconico_music = RecommendationEngine::calculate_recommendations(
             &hardware,
             &current,
             StreamingPlatform::NicoNico,
-            StreamingStyle::Gaming,
+            StreamingStyle::Music,
             10.0,
         );
-        assert_eq!(niconico.audio.bitrate_kbps, 128, "ニコニコ音声ビットレート");
+        assert_eq!(niconico_music.audio.bitrate_kbps, 128, "ニコニコ音声ビットレート上限");
     }
 }

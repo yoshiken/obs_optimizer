@@ -187,6 +187,8 @@ pub enum StreamingPlatform {
     Twitch,
     /// ニコニコ生放送
     NicoNico,
+    /// ツイキャス
+    TwitCasting,
     /// その他
     Other,
 }
@@ -325,6 +327,7 @@ mod tests {
             StreamingPlatform::YouTube,
             StreamingPlatform::Twitch,
             StreamingPlatform::NicoNico,
+            StreamingPlatform::TwitCasting,
             StreamingPlatform::Other,
         ] {
             let json = serde_json::to_string(&platform).unwrap();

@@ -9,6 +9,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { OnboardingWizard } from './features/onboarding/OnboardingWizard';
 import { ProblemDashboard } from './features/analysis/ProblemDashboard';
 import { RecommendedSettingsPanel } from './features/optimization/RecommendedSettingsPanel';
+import { StreamConfigSelector } from './features/optimization/StreamConfigSelector';
 import { OneClickApply } from './features/optimization/OneClickApply';
 import { ProfileList } from './features/profiles/ProfileList';
 import { SessionHistory } from './features/history/SessionHistory';
@@ -297,6 +298,7 @@ function AnalysisTab() {
 function OptimizationTab() {
   return (
     <div className="space-y-6">
+      <StreamConfigSelector />
       <RecommendedSettingsPanel />
       <OneClickApply />
       <ProfileList />

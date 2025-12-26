@@ -80,6 +80,7 @@ export function ProfileList({ onApplied, onDeleted, onError }: ProfileListProps)
       youTube: 'YouTube',
       twitch: 'Twitch',
       nicoNico: 'ニコニコ生放送',
+      twitCasting: 'ツイキャス',
       other: 'その他',
     };
     return names[platform];

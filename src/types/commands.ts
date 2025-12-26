@@ -473,7 +473,7 @@ export interface Commands {
 // Phase 1b追加型定義
 // ========================================
 
-export type StreamingPlatform = 'youTube' | 'twitch' | 'nicoNico' | 'other';
+export type StreamingPlatform = 'youTube' | 'twitch' | 'nicoNico' | 'twitCasting' | 'other';
 export type StreamingStyle = 'talk' | 'gaming' | 'music' | 'art' | 'other';
 
 // GPU世代の分類
