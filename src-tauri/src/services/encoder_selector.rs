@@ -3,7 +3,7 @@
 // ハードウェア情報とユーザー設定からエンコーダーを選択
 // obs_guide.mdの判定ロジックに基づく
 
-use super::gpu_detection::{CpuTier, GpuEncoderCapability, GpuGeneration, get_encoder_capability};
+use super::gpu_detection::{CpuTier, GpuEncoderCapability, GpuGeneration, GpuTier, get_encoder_capability, adjust_preset_for_tier};
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use serde::{Deserialize, Serialize};
 
@@ -40,15 +40,16 @@ pub struct RecommendedEncoder {
 pub struct EncoderSelectionContext {
     /// GPU世代
     pub gpu_generation: GpuGeneration,
+    /// GPUティア（同一世代内での性能差）
+    pub gpu_tier: GpuTier,
     /// CPUティア
     pub cpu_tier: CpuTier,
-    /// 配信プラットフォーム（将来のビットレート計算で使用予定）
-    #[allow(dead_code)]
+    /// 配信プラットフォーム
     pub platform: StreamingPlatform,
-    /// 配信スタイル（将来のビットレート計算で使用予定）
+    /// 配信スタイル
     #[allow(dead_code)]
     pub style: StreamingStyle,
-    /// ネットワーク速度（Mbps）（将来のビットレート計算で使用予定）
+    /// ネットワーク速度（Mbps）
     #[allow(dead_code)]
     pub network_speed_mbps: f64,
 }
@@ -188,11 +189,17 @@ impl EncoderSelector {
             GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaAda
         );
 
-        // マルチパスモード: Turing以降は2パス(1/4解像度)で高品質化
-        // 参考: https://castcraft.live/blog/178/
+        // マルチパスモード: ティアに応じて調整
+        // ハイエンド以上: quarter_res（高品質）
+        // ミドル以下: disabled（負荷軽減）
         let multipass_mode = match context.gpu_generation {
-            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere => "quarter_res".to_string(),
-            GpuGeneration::NvidiaTuring => "quarter_res".to_string(),
+            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaTuring => {
+                match context.gpu_tier {
+                    GpuTier::Flagship | GpuTier::HighEnd | GpuTier::UpperMid => "quarter_res".to_string(),
+                    GpuTier::Mid | GpuTier::Entry => "disabled".to_string(),
+                    GpuTier::Unknown => "quarter_res".to_string(), // 安全側
+                }
+            }
             _ => "disabled".to_string(),
         };
 
@@ -204,16 +211,34 @@ impl EncoderSelector {
             _ => None,
         };
 
+        // プリセットをティアに応じて調整
+        let base_preset: u8 = capability.recommended_preset
+            .trim_start_matches('p')
+            .parse()
+            .unwrap_or(5);
+        let adjusted_preset = adjust_preset_for_tier(base_preset, context.gpu_tier);
+        let preset_string = format!("p{}", adjusted_preset);
+
+        // ティア情報を理由に追加
+        let tier_note = match context.gpu_tier {
+            GpuTier::Flagship | GpuTier::HighEnd => "".to_string(),
+            GpuTier::UpperMid => "（アッパーミドルモデルのためプリセットを1段階調整）".to_string(),
+            GpuTier::Mid => "（ミドルモデルのためプリセットを1段階調整）".to_string(),
+            GpuTier::Entry => "（エントリーモデルのためプリセットを2段階調整）".to_string(),
+            GpuTier::Unknown => "".to_string(),
+        };
+
         let reason = format!(
-            "{}を検出。NVENCエンコーダーはCPU負荷をほぼゼロにし、{}相当の品質を実現します。マルチパス2パスで高画質化",
+            "{}を検出。NVENCエンコーダーはCPU負荷をほぼゼロにし、{}相当の品質を実現します{}",
             Self::gpu_display_name(context.gpu_generation),
-            capability.quality_equivalent
+            capability.quality_equivalent,
+            tier_note
         );
 
         RecommendedEncoder {
             encoder_id: "ffmpeg_nvenc".to_string(),
             display_name: "NVIDIA NVENC H.264".to_string(),
-            preset: capability.recommended_preset.to_string(),
+            preset: preset_string,
             rate_control: "CBR".to_string(),
             b_frames,
             look_ahead,
@@ -389,6 +414,22 @@ mod tests {
     ) -> EncoderSelectionContext {
         EncoderSelectionContext {
             gpu_generation: gpu_gen,
+            gpu_tier: GpuTier::HighEnd, // デフォルトはハイエンド
+            cpu_tier,
+            platform: StreamingPlatform::YouTube,
+            style: StreamingStyle::Gaming,
+            network_speed_mbps: 10.0,
+        }
+    }
+
+    fn create_test_context_with_tier(
+        gpu_gen: GpuGeneration,
+        gpu_tier: GpuTier,
+        cpu_tier: CpuTier,
+    ) -> EncoderSelectionContext {
+        EncoderSelectionContext {
+            gpu_generation: gpu_gen,
+            gpu_tier,
             cpu_tier,
             platform: StreamingPlatform::YouTube,
             style: StreamingStyle::Gaming,
@@ -593,5 +634,98 @@ mod tests {
                 platform
             );
         }
+    }
+
+    // === GPUティア別テスト ===
+
+    #[test]
+    fn test_gpu_tier_preset_adjustment_flagship() {
+        // RTX 4090（フラグシップ）はP7のまま
+        let mut context = create_test_context_with_tier(
+            GpuGeneration::NvidiaAda,
+            GpuTier::Flagship,
+            CpuTier::Middle,
+        );
+        context.platform = StreamingPlatform::Twitch; // H.264を使用するためTwitch
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.preset, "p7", "フラグシップはP7のまま");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "フラグシップはマルチパス有効");
+    }
+
+    #[test]
+    fn test_gpu_tier_preset_adjustment_mid() {
+        // RTX 4060（ミドル）はP6に調整
+        let mut context = create_test_context_with_tier(
+            GpuGeneration::NvidiaAda,
+            GpuTier::Mid,
+            CpuTier::Middle,
+        );
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.preset, "p6", "ミドルはP7→P6に調整");
+        assert_eq!(encoder.multipass_mode, "disabled", "ミドルはマルチパス無効");
+        assert!(encoder.reason.contains("ミドルモデル"));
+    }
+
+    #[test]
+    fn test_gpu_tier_preset_adjustment_entry() {
+        // RTX 3050（エントリー）はP4に調整（P6から-2）
+        let mut context = create_test_context_with_tier(
+            GpuGeneration::NvidiaAmpere,
+            GpuTier::Entry,
+            CpuTier::Middle,
+        );
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.preset, "p4", "エントリーはP6→P4に調整");
+        assert_eq!(encoder.multipass_mode, "disabled", "エントリーはマルチパス無効");
+        assert!(encoder.reason.contains("エントリーモデル"));
+    }
+
+    #[test]
+    fn test_gpu_tier_comparison_same_generation() {
+        // 同一世代でもティアが異なればプリセットが異なる
+        let flagship = create_test_context_with_tier(
+            GpuGeneration::NvidiaAmpere,
+            GpuTier::Flagship, // RTX 3090
+            CpuTier::Middle,
+        );
+        let entry = create_test_context_with_tier(
+            GpuGeneration::NvidiaAmpere,
+            GpuTier::Entry, // RTX 3050
+            CpuTier::Middle,
+        );
+
+        let mut flagship_ctx = flagship;
+        flagship_ctx.platform = StreamingPlatform::Twitch;
+        let mut entry_ctx = entry;
+        entry_ctx.platform = StreamingPlatform::Twitch;
+
+        let flagship_encoder = EncoderSelector::select_encoder(&flagship_ctx);
+        let entry_encoder = EncoderSelector::select_encoder(&entry_ctx);
+
+        // 両方ともNVENCだが、プリセットが異なる
+        assert_eq!(flagship_encoder.encoder_id, "ffmpeg_nvenc");
+        assert_eq!(entry_encoder.encoder_id, "ffmpeg_nvenc");
+        assert_ne!(flagship_encoder.preset, entry_encoder.preset,
+            "RTX 3090とRTX 3050ではプリセットが異なる");
+    }
+
+    #[test]
+    fn test_preset_minimum_clamp() {
+        // プリセットがP1より下にならないことを確認
+        let context = create_test_context_with_tier(
+            GpuGeneration::NvidiaPascal, // 基本P4
+            GpuTier::Entry,              // -2調整
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p2", "P4-2=P2に調整（P1未満にはならない）");
     }
 }

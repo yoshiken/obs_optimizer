@@ -6,7 +6,7 @@
 use crate::obs::ObsSettings;
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use crate::monitor::gpu::GpuInfo;
-use super::gpu_detection::{detect_gpu_generation, determine_cpu_tier, GpuGeneration};
+use super::gpu_detection::{detect_gpu_generation, detect_gpu_tier, determine_cpu_tier, GpuGeneration, GpuTier};
 use super::encoder_selector::{EncoderSelector, EncoderSelectionContext};
 use serde::{Deserialize, Serialize};
 
@@ -293,11 +293,11 @@ impl RecommendationEngine {
         network_speed_mbps: f64,
         reasons: &mut Vec<String>,
     ) -> String {
-        // GPU世代を判定
-        let gpu_generation = if let Some(gpu) = &hardware.gpu {
-            detect_gpu_generation(&gpu.name)
+        // GPU世代とティアを判定
+        let (gpu_generation, gpu_tier) = if let Some(gpu) = &hardware.gpu {
+            (detect_gpu_generation(&gpu.name), detect_gpu_tier(&gpu.name))
         } else {
-            GpuGeneration::None
+            (GpuGeneration::None, GpuTier::Unknown)
         };
 
         // CPUティアを判定
@@ -306,6 +306,7 @@ impl RecommendationEngine {
         // エンコーダー選択コンテキストを構築
         let context = EncoderSelectionContext {
             gpu_generation,
+            gpu_tier,
             cpu_tier,
             platform,
             style,
@@ -444,11 +445,11 @@ impl RecommendationEngine {
         style: StreamingStyle,
         network_speed_mbps: f64,
     ) -> String {
-        // GPU世代を判定
-        let gpu_generation = if let Some(gpu) = &hardware.gpu {
-            detect_gpu_generation(&gpu.name)
+        // GPU世代とティアを判定
+        let (gpu_generation, gpu_tier) = if let Some(gpu) = &hardware.gpu {
+            (detect_gpu_generation(&gpu.name), detect_gpu_tier(&gpu.name))
         } else {
-            GpuGeneration::None
+            (GpuGeneration::None, GpuTier::Unknown)
         };
 
         // CPUティアを判定
@@ -457,6 +458,7 @@ impl RecommendationEngine {
         // エンコーダー選択コンテキストを構築
         let context = EncoderSelectionContext {
             gpu_generation,
+            gpu_tier,
             cpu_tier,
             platform,
             style,

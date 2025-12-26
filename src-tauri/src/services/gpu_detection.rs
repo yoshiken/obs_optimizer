@@ -45,6 +45,24 @@ pub enum CpuTier {
     HighEnd,
 }
 
+/// GPUのティア分類（同一世代内での性能差）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GpuTier {
+    /// フラグシップ（xx90, Titan, x900等）
+    Flagship,
+    /// ハイエンド（xx80, x800等）
+    HighEnd,
+    /// アッパーミドル（xx70, x700等）
+    UpperMid,
+    /// ミドル（xx60, x600等）
+    Mid,
+    /// エントリー（xx50, x500等）
+    Entry,
+    /// 不明
+    Unknown,
+}
+
 /// GPU世代ごとのエンコーダー能力
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpuEncoderCapability {
@@ -282,6 +300,136 @@ pub fn determine_cpu_tier(cpu_cores: usize) -> CpuTier {
     }
 }
 
+/// GPUティア判定パターン
+struct GpuTierPattern {
+    /// 検索キーワード（大文字小文字を区別しない）
+    keywords: &'static [&'static str],
+    /// 判定されるティア
+    tier: GpuTier,
+}
+
+/// GPUティア判定パターン定義テーブル
+/// 順序が重要：より具体的なパターンを先に配置
+const GPU_TIER_PATTERNS: &[GpuTierPattern] = &[
+    // === NVIDIA Flagship (xx90, Titan) ===
+    GpuTierPattern {
+        keywords: &["5090", "4090", "3090", "2080 ti", "1080 ti", "titan"],
+        tier: GpuTier::Flagship,
+    },
+    // === NVIDIA HighEnd (xx80) ===
+    GpuTierPattern {
+        keywords: &["5080", "4080", "3080", "2080", "1080"],
+        tier: GpuTier::HighEnd,
+    },
+    // === NVIDIA UpperMid (xx70) ===
+    GpuTierPattern {
+        keywords: &["5070", "4070", "3070", "2070", "1070"],
+        tier: GpuTier::UpperMid,
+    },
+    // === NVIDIA Mid (xx60) ===
+    GpuTierPattern {
+        keywords: &["5060", "4060", "3060", "2060", "1660", "1060"],
+        tier: GpuTier::Mid,
+    },
+    // === NVIDIA Entry (xx50) ===
+    GpuTierPattern {
+        keywords: &["5050", "4050", "3050", "1650", "1050"],
+        tier: GpuTier::Entry,
+    },
+    // === AMD Flagship (x900) ===
+    GpuTierPattern {
+        keywords: &["7900", "6900"],
+        tier: GpuTier::Flagship,
+    },
+    // === AMD HighEnd (x800) ===
+    GpuTierPattern {
+        keywords: &["7800", "6800"],
+        tier: GpuTier::HighEnd,
+    },
+    // === AMD UpperMid (x700) ===
+    GpuTierPattern {
+        keywords: &["7700", "6700"],
+        tier: GpuTier::UpperMid,
+    },
+    // === AMD Mid (x600) ===
+    GpuTierPattern {
+        keywords: &["7600", "6600"],
+        tier: GpuTier::Mid,
+    },
+    // === AMD Entry (x500) ===
+    GpuTierPattern {
+        keywords: &["6500", "6400"],
+        tier: GpuTier::Entry,
+    },
+    // === Intel Arc HighEnd ===
+    GpuTierPattern {
+        keywords: &["a770"],
+        tier: GpuTier::HighEnd,
+    },
+    // === Intel Arc UpperMid ===
+    GpuTierPattern {
+        keywords: &["a750"],
+        tier: GpuTier::UpperMid,
+    },
+    // === Intel Arc Mid ===
+    GpuTierPattern {
+        keywords: &["a580"],
+        tier: GpuTier::Mid,
+    },
+    // === Intel Arc Entry ===
+    GpuTierPattern {
+        keywords: &["a380", "a310"],
+        tier: GpuTier::Entry,
+    },
+];
+
+/// GPU名からティアを判定
+///
+/// # Arguments
+/// * `gpu_name` - GPU名称（例: "NVIDIA GeForce RTX 3060"）
+///
+/// # Returns
+/// 判定されたGPUティア
+pub fn detect_gpu_tier(gpu_name: &str) -> GpuTier {
+    let gpu_name_lower = gpu_name.to_lowercase();
+
+    for pattern in GPU_TIER_PATTERNS {
+        let has_keyword = pattern
+            .keywords
+            .iter()
+            .any(|kw| gpu_name_lower.contains(kw));
+
+        if has_keyword {
+            return pattern.tier;
+        }
+    }
+
+    GpuTier::Unknown
+}
+
+/// GPUティアに基づくプリセット調整値を取得
+///
+/// # Arguments
+/// * `base_preset` - 世代ごとの基本プリセット番号（例: P7 → 7）
+/// * `tier` - GPUティア
+///
+/// # Returns
+/// 調整後のプリセット番号
+pub fn adjust_preset_for_tier(base_preset: u8, tier: GpuTier) -> u8 {
+    let adjustment: i8 = match tier {
+        GpuTier::Flagship => 0,    // 最高性能、調整なし
+        GpuTier::HighEnd => 0,     // 高性能、調整なし
+        GpuTier::UpperMid => -1,   // 1段階下げる
+        GpuTier::Mid => -1,        // 1段階下げる
+        GpuTier::Entry => -2,      // 2段階下げる
+        GpuTier::Unknown => -1,    // 安全のため1段階下げる
+    };
+
+    // P1-P7の範囲に収める
+    let adjusted = (base_preset as i8 + adjustment).clamp(1, 7);
+    adjusted as u8
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,5 +619,102 @@ mod tests {
                 generation
             );
         }
+    }
+
+    // === GPUティア判定テスト ===
+
+    #[test]
+    fn test_detect_gpu_tier_nvidia_flagship() {
+        assert_eq!(detect_gpu_tier("NVIDIA GeForce RTX 5090"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("RTX 4090"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("RTX 3090"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("GTX 2080 Ti"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("GTX 1080 Ti"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("TITAN RTX"), GpuTier::Flagship);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_nvidia_highend() {
+        assert_eq!(detect_gpu_tier("RTX 5080"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("RTX 4080"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("RTX 3080"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("RTX 2080"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("GTX 1080"), GpuTier::HighEnd);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_nvidia_upper_mid() {
+        assert_eq!(detect_gpu_tier("RTX 5070 Ti"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("RTX 4070"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("RTX 3070"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("RTX 2070 Super"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("GTX 1070"), GpuTier::UpperMid);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_nvidia_mid() {
+        assert_eq!(detect_gpu_tier("RTX 5060"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("RTX 4060 Ti"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("RTX 3060"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("RTX 2060"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("GTX 1660 Super"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("GTX 1060"), GpuTier::Mid);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_nvidia_entry() {
+        assert_eq!(detect_gpu_tier("RTX 4050"), GpuTier::Entry);
+        assert_eq!(detect_gpu_tier("RTX 3050"), GpuTier::Entry);
+        assert_eq!(detect_gpu_tier("GTX 1650 Super"), GpuTier::Entry);
+        assert_eq!(detect_gpu_tier("GTX 1050 Ti"), GpuTier::Entry);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_amd() {
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 7900 XT"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 6900 XT"), GpuTier::Flagship);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 7800 XT"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 6800"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 7700 XT"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 6700 XT"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 7600"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 6600"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("AMD Radeon RX 6500 XT"), GpuTier::Entry);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_intel_arc() {
+        assert_eq!(detect_gpu_tier("Intel Arc A770"), GpuTier::HighEnd);
+        assert_eq!(detect_gpu_tier("Intel Arc A750"), GpuTier::UpperMid);
+        assert_eq!(detect_gpu_tier("Intel Arc A580"), GpuTier::Mid);
+        assert_eq!(detect_gpu_tier("Intel Arc A380"), GpuTier::Entry);
+        assert_eq!(detect_gpu_tier("Intel Arc A310"), GpuTier::Entry);
+    }
+
+    #[test]
+    fn test_detect_gpu_tier_unknown() {
+        assert_eq!(detect_gpu_tier("Intel UHD Graphics 770"), GpuTier::Unknown);
+        assert_eq!(detect_gpu_tier("Some Unknown GPU"), GpuTier::Unknown);
+    }
+
+    #[test]
+    fn test_adjust_preset_for_tier() {
+        // フラグシップ・ハイエンド: 調整なし
+        assert_eq!(adjust_preset_for_tier(7, GpuTier::Flagship), 7);
+        assert_eq!(adjust_preset_for_tier(7, GpuTier::HighEnd), 7);
+
+        // アッパーミドル・ミドル: -1
+        assert_eq!(adjust_preset_for_tier(7, GpuTier::UpperMid), 6);
+        assert_eq!(adjust_preset_for_tier(7, GpuTier::Mid), 6);
+        assert_eq!(adjust_preset_for_tier(6, GpuTier::Mid), 5);
+
+        // エントリー: -2
+        assert_eq!(adjust_preset_for_tier(7, GpuTier::Entry), 5);
+        assert_eq!(adjust_preset_for_tier(6, GpuTier::Entry), 4);
+        assert_eq!(adjust_preset_for_tier(4, GpuTier::Entry), 2);
+
+        // 最小値のクランプ（P1未満にはならない）
+        assert_eq!(adjust_preset_for_tier(2, GpuTier::Entry), 1);
+        assert_eq!(adjust_preset_for_tier(1, GpuTier::Entry), 1);
     }
 }
