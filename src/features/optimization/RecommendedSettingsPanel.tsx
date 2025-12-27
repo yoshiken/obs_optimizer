@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useConfigStore } from '../../stores/configStore';
+import { getEncoderDisplayLabel } from '../../utils/encoderLabels';
+import { EncoderBadge } from '../../components/EncoderBadge';
 import type {
   AnalysisResult,
   AnalyzeSettingsRequest,
@@ -39,6 +41,11 @@ function convertStyle(style: string | null): StreamingStyle | undefined {
   return map[style] ?? 'gaming';
 }
 
+interface RecommendedSettingsPanelProps {
+  /** 最適化適用後の設定更新トリガー（オプション） */
+  refreshTrigger?: number;
+}
+
 /**
  * 推奨設定パネル
  *
@@ -48,12 +55,13 @@ function convertStyle(style: string | null): StreamingStyle | undefined {
  * - 推奨理由リスト
  * - スコア表示（現在 → 推奨適用後）
  * - プラットフォーム/スタイル変更時のリアルタイム更新
+ * - 最適化適用後の自動更新
  *
  * 使用するTauriコマンド:
  * - analyze_settings: 診断結果と推奨設定を取得
  * - get_obs_settings_command: 現在のOBS設定を取得
  */
-export function RecommendedSettingsPanel() {
+export function RecommendedSettingsPanel({ refreshTrigger }: RecommendedSettingsPanelProps = {}) {
   const { config } = useConfigStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +73,7 @@ export function RecommendedSettingsPanel() {
   const platform = config?.platform ?? null;
   const streamStyle = config?.streamStyle ?? null;
 
-  // データ取得（プラットフォーム・スタイル変更時に再取得）
+  // データ取得（プラットフォーム・スタイル変更時、または最適化適用後に再取得）
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -95,7 +103,7 @@ export function RecommendedSettingsPanel() {
     };
 
     void fetchData();
-  }, [platform, streamStyle]); // プラットフォーム・スタイル変更時に再取得
+  }, [platform, streamStyle, refreshTrigger]); // refreshTriggerを依存配列に追加
 
   // ローディング状態
   if (loading) {
@@ -281,7 +289,8 @@ function SettingsComparisonTable({
     ? Math.round((current.video.fpsNumerator / current.video.fpsDenominator) * 10) / 10
     : 0;
   const currentBitrate = `${Math.round(current.output.bitrateKbps / 1000)} Mbps`;
-  const currentEncoder = current.output.encoder;
+  // エンコーダーIDをユーザー向けラベルに変換
+  const currentEncoder = getEncoderDisplayLabel(current.output.encoder);
 
   // 推奨値を取得（keyRecommendationsから該当するものを探す）
   const getRecommendedValue = (label: string): string => {
@@ -291,26 +300,40 @@ function SettingsComparisonTable({
     return rec ? rec.value : '-';
   };
 
-  const rows = [
+  // 推奨エンコーダー情報を取得
+  const recommendedEncoderValue = getRecommendedValue('エンコーダー');
+
+  const rows: Array<{
+    label: string;
+    current: string;
+    recommended: string;
+    isEncoder: boolean;
+    currentRawId?: string;
+  }> = [
     {
       label: '解像度',
       current: currentResolution,
       recommended: getRecommendedValue('解像度'),
+      isEncoder: false,
     },
     {
       label: 'FPS',
       current: `${currentFps} fps`,
       recommended: getRecommendedValue('fps'),
+      isEncoder: false,
     },
     {
       label: 'ビットレート',
       current: currentBitrate,
       recommended: getRecommendedValue('ビットレート'),
+      isEncoder: false,
     },
     {
       label: 'エンコーダー',
       current: currentEncoder,
-      recommended: getRecommendedValue('エンコーダー'),
+      recommended: recommendedEncoderValue,
+      isEncoder: true,
+      currentRawId: current.output.encoder,
     },
   ];
 
@@ -350,7 +373,11 @@ function SettingsComparisonTable({
                     {row.label}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                    {row.current}
+                    {row.isEncoder && row.currentRawId ? (
+                      <EncoderBadge encoderId={row.currentRawId} showDetails />
+                    ) : (
+                      row.current
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400">
                     {row.recommended}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useProfileStore } from '../../stores/profileStore';
+import { getEncoderDisplayLabel } from '../../utils/encoderLabels';
 import type {
   ProfileSettings,
   SettingsProfile,
@@ -229,7 +230,7 @@ export function ProfileEditor({
           <div>
             <p className="text-gray-600 dark:text-gray-400">エンコーダー</p>
             <p className="text-gray-900 dark:text-white font-medium">
-              {settings.output.encoder}
+              {getEncoderDisplayLabel(settings.output.encoder)}
             </p>
           </div>
           <div>

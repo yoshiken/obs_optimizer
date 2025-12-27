@@ -354,49 +354,97 @@ fn calculate_overall_score(problems: &[ProblemReport]) -> f64 {
 
 /// エンコーダーIDからユーザー向け表示ラベルを取得
 ///
-/// AV1、HEVC、H.264など各コーデックを区別して表示
+/// OBSで使用される様々なエンコーダーIDを判定して、
+/// ユーザーフレンドリーな表示名に変換する。
+///
+/// # Arguments
+/// * `encoder_id` - OBSエンコーダーID（例: jim_av1_nvenc, ffmpeg_nvenc, obs_x264）
+///
+/// # Returns
+/// ユーザー向け表示ラベル（例: "NVIDIA NVENC (AV1)"）
+///
+/// # サポートされるエンコーダー
+/// - NVIDIA: jim_av1_nvenc, ffmpeg_nvenc, jim_hevc_nvenc等
+/// - AMD: amd_amf_h264, h264_texture_amf, av1_amf等
+/// - Intel: obs_qsv11, obs_qsv11_av1, qsv_hevc等
+/// - CPU: obs_x264, obs_x265等
 fn get_encoder_display_label(encoder_id: &str) -> String {
-    // AV1エンコーダー（NVIDIA, AMD, Intel）
-    if encoder_id.contains("av1") {
-        if encoder_id.contains("nvenc") || encoder_id.contains("jim_av1") {
+    // 空文字列チェック
+    if encoder_id.is_empty() {
+        return "不明なエンコーダー".to_string();
+    }
+
+    // 大文字小文字を統一（判定用）
+    let encoder_lower = encoder_id.to_lowercase();
+
+    // === AV1エンコーダー ===
+    if encoder_lower.contains("av1") {
+        // NVIDIA AV1（RTX 40/50シリーズ）
+        if encoder_lower.contains("nvenc") || encoder_lower.contains("jim_av1") {
             return "NVIDIA NVENC (AV1)".to_string();
-        } else if encoder_id.contains("amf") || encoder_id.contains("amd") {
+        }
+        // AMD AV1（RX 7000シリーズ以降）
+        if encoder_lower.contains("amf") || encoder_lower.contains("amd") {
             return "AMD AMF (AV1)".to_string();
-        } else if encoder_id.contains("qsv") {
+        }
+        // Intel AV1（Arc/Meteor Lake以降）
+        if encoder_lower.contains("qsv") {
             return "Intel QSV (AV1)".to_string();
         }
+        // その他のAV1（ソフトウェアエンコード等）
         return "AV1".to_string();
     }
 
-    // HEVCエンコーダー
-    if encoder_id.contains("hevc") || encoder_id.contains("h265") {
-        if encoder_id.contains("nvenc") {
+    // === HEVCエンコーダー ===
+    if encoder_lower.contains("hevc") || encoder_lower.contains("h265") {
+        // NVIDIA HEVC
+        if encoder_lower.contains("nvenc") {
             return "NVIDIA NVENC (HEVC)".to_string();
-        } else if encoder_id.contains("amf") || encoder_id.contains("amd") {
+        }
+        // AMD HEVC
+        if encoder_lower.contains("amf") || encoder_lower.contains("amd") {
             return "AMD AMF (HEVC)".to_string();
-        } else if encoder_id.contains("qsv") {
+        }
+        // Intel HEVC
+        if encoder_lower.contains("qsv") {
             return "Intel QSV (HEVC)".to_string();
+        }
+        // CPU x265（ソフトウェアHEVCエンコード）
+        if encoder_lower.contains("x265") {
+            return "CPU (x265)".to_string();
         }
         return "HEVC".to_string();
     }
 
-    // H.264エンコーダー（NVENC）
-    if encoder_id.contains("nvenc") {
+    // === H.264エンコーダー ===
+
+    // NVIDIA H.264（すべてのNVENC対応GPU）
+    if encoder_lower.contains("nvenc") {
         return "NVIDIA NVENC (H.264)".to_string();
     }
 
     // AMD H.264
-    if encoder_id.contains("amd") || encoder_id.contains("amf") {
+    if encoder_lower.contains("amd") || encoder_lower.contains("amf") {
         return "AMD AMF (H.264)".to_string();
     }
 
     // Intel QuickSync H.264
-    if encoder_id.contains("qsv") {
+    if encoder_lower.contains("qsv") {
         return "Intel QSV (H.264)".to_string();
     }
 
-    // CPU (x264)
-    "CPU (x264)".to_string()
+    // CPU x264（ソフトウェアH.264エンコード）
+    if encoder_lower.contains("x264") {
+        return "CPU (x264)".to_string();
+    }
+
+    // CPU x265（既にHEVCセクションでチェック済みだが念のため）
+    if encoder_lower.contains("x265") {
+        return "CPU (x265)".to_string();
+    }
+
+    // === 不明なエンコーダー ===
+    "不明なエンコーダー".to_string()
 }
 
 /// 初心者向け分析サマリーを生成
@@ -469,7 +517,7 @@ fn generate_analysis_summary(
 
     // FPS
     key_recommendations.push(KeyRecommendation {
-        label: "フレームレート".to_string(),
+        label: "FPS".to_string(),
         value: format!("{}fps", recommendations.video.fps),
         reason_simple: if recommendations.video.fps >= 60 {
             "滑らかな映像で視聴者に快適な体験を".to_string()
@@ -494,7 +542,7 @@ fn generate_analysis_summary(
         reason_simple: if encoder_label.contains("CPU") {
             "CPU負荷が高めです。GPU搭載PCの場合はハードウェアエンコーダー推奨".to_string()
         } else if encoder_label.contains("AV1") {
-            "最新コーデックで高画質・低ビットレート".to_string()
+            "最新AV1コーデック（※OBS 30.0以上 + Enhanced RTMP対応が必要）".to_string()
         } else {
             "GPU使用でCPU負荷を軽減".to_string()
         },
@@ -551,42 +599,303 @@ mod tests {
         assert_eq!(score, 70.0); // 100 - 20 - 10
     }
 
+    // === エンコーダー表示ラベルのテスト ===
+
     #[test]
-    fn test_get_encoder_label_av1_nvenc() {
-        // AV1 NVENC (jim_av1_nvenc) はAV1として表示される
-        let label = get_encoder_display_label("jim_av1_nvenc");
-        assert!(label.contains("AV1"), "AV1 encoder should be labeled with AV1, got: {}", label);
+    fn test_get_encoder_label_nvidia_av1() {
+        // NVIDIA AV1エンコーダー（RTX 40/50シリーズ）
+        let test_cases = vec![
+            ("jim_av1_nvenc", "NVIDIA NVENC (AV1)"),
+            ("av1_nvenc", "NVIDIA NVENC (AV1)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
     }
 
     #[test]
-    fn test_get_encoder_label_h264_nvenc() {
-        // H.264 NVENC (ffmpeg_nvenc) は従来通りNVIDIA NVENCと表示
-        let label = get_encoder_display_label("ffmpeg_nvenc");
-        assert_eq!(label, "NVIDIA NVENC (H.264)");
+    fn test_get_encoder_label_nvidia_hevc() {
+        // NVIDIA HEVCエンコーダー（GTX 10/RTX 20以降）
+        let test_cases = vec![
+            ("jim_hevc_nvenc", "NVIDIA NVENC (HEVC)"),
+            ("ffmpeg_hevc_nvenc", "NVIDIA NVENC (HEVC)"),
+            ("nvenc_hevc", "NVIDIA NVENC (HEVC)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
     }
 
     #[test]
-    fn test_get_encoder_label_hevc_nvenc() {
-        // HEVC NVENC
-        let label = get_encoder_display_label("jim_hevc_nvenc");
-        assert!(label.contains("HEVC") || label.contains("H.265"), "HEVC encoder label: {}", label);
+    fn test_get_encoder_label_nvidia_h264() {
+        // NVIDIA H.264エンコーダー（すべてのNVENC対応GPU）
+        let test_cases = vec![
+            ("ffmpeg_nvenc", "NVIDIA NVENC (H.264)"),
+            ("jim_nvenc", "NVIDIA NVENC (H.264)"),
+            ("nvenc_h264", "NVIDIA NVENC (H.264)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
     }
 
     #[test]
-    fn test_get_encoder_label_amd() {
-        let label = get_encoder_display_label("h264_texture_amf");
-        assert!(label.contains("AMD"), "AMD encoder should be labeled with AMD, got: {}", label);
+    fn test_get_encoder_label_amd_av1() {
+        // AMD AV1エンコーダー（RX 7000シリーズ以降）
+        let test_cases = vec![
+            ("av1_amf", "AMD AMF (AV1)"),
+            ("amd_av1_amf", "AMD AMF (AV1)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
     }
 
     #[test]
-    fn test_get_encoder_label_qsv() {
-        let label = get_encoder_display_label("obs_qsv11_av1");
-        assert!(label.contains("Intel") || label.contains("QSV"), "QSV encoder should be labeled with Intel/QSV, got: {}", label);
+    fn test_get_encoder_label_amd_hevc() {
+        // AMD HEVCエンコーダー（RX 400シリーズ以降）
+        let test_cases = vec![
+            ("hevc_amf", "AMD AMF (HEVC)"),
+            ("amd_hevc_amf", "AMD AMF (HEVC)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
     }
 
     #[test]
-    fn test_get_encoder_label_x264() {
-        let label = get_encoder_display_label("obs_x264");
-        assert!(label.contains("CPU") || label.contains("x264"), "x264 encoder should be labeled with CPU, got: {}", label);
+    fn test_get_encoder_label_amd_h264() {
+        // AMD H.264エンコーダー
+        let test_cases = vec![
+            ("amd_amf_h264", "AMD AMF (H.264)"),
+            ("h264_texture_amf", "AMD AMF (H.264)"),
+            ("h264_amf", "AMD AMF (H.264)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_intel_av1() {
+        // Intel AV1エンコーダー（Arc/Meteor Lake以降）
+        let test_cases = vec![
+            ("obs_qsv11_av1", "Intel QSV (AV1)"),
+            ("qsv_av1", "Intel QSV (AV1)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_intel_hevc() {
+        // Intel HEVCエンコーダー（Skylake以降）
+        let test_cases = vec![
+            ("obs_qsv11_hevc", "Intel QSV (HEVC)"),
+            ("qsv_hevc", "Intel QSV (HEVC)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_intel_h264() {
+        // Intel H.264エンコーダー（QuickSync）
+        let test_cases = vec![
+            ("obs_qsv11", "Intel QSV (H.264)"),
+            ("qsv_h264", "Intel QSV (H.264)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_cpu_x264() {
+        // CPU x264エンコーダー
+        let test_cases = vec![
+            ("obs_x264", "CPU (x264)"),
+            ("x264", "CPU (x264)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_cpu_x265() {
+        // CPU x265エンコーダー（HEVCソフトウェアエンコード）
+        let test_cases = vec![
+            ("obs_x265", "CPU (x265)"),
+            ("x265", "CPU (x265)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_edge_cases() {
+        // エッジケース: 空文字列、不明なエンコーダー
+        let test_cases = vec![
+            ("", "不明なエンコーダー"),
+            ("unknown_encoder", "不明なエンコーダー"),
+            ("invalid", "不明なエンコーダー"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_case_insensitive() {
+        // 大文字小文字の違いを許容
+        let test_cases = vec![
+            ("FFMPEG_NVENC", "NVIDIA NVENC (H.264)"),
+            ("Jim_AV1_NVENC", "NVIDIA NVENC (AV1)"),
+            ("AMD_AMF_H264", "AMD AMF (H.264)"),
+            ("OBS_QSV11_AV1", "Intel QSV (AV1)"),
+            ("OBS_X264", "CPU (x264)"),
+        ];
+        for (encoder_id, expected) in test_cases {
+            let label = get_encoder_display_label(encoder_id);
+            assert_eq!(label, expected, "Encoder ID: {}", encoder_id);
+        }
+    }
+
+    #[test]
+    fn test_get_encoder_label_consistency_with_encoder_selector() {
+        // encoder_selector.rsと整合性を確認
+        // encoder_selector.rsが返すIDが正しく表示されることを保証
+        let selector_encoder_ids = vec![
+            "jim_av1_nvenc",      // NVIDIA AV1
+            "ffmpeg_nvenc",       // NVIDIA H.264
+            "amd_amf_h264",       // AMD H.264
+            "obs_qsv11_av1",      // Intel Arc AV1
+            "obs_qsv11",          // Intel QuickSync H.264
+            "obs_x264",           // CPU x264
+        ];
+
+        for encoder_id in selector_encoder_ids {
+            let label = get_encoder_display_label(encoder_id);
+            // ラベルが空文字列や"不明"でないことを確認
+            assert!(!label.is_empty(), "Label should not be empty for: {}", encoder_id);
+            assert!(!label.contains("不明"), "Label should be known for encoder_selector ID: {}", encoder_id);
+        }
+    }
+
+    // === 配信特化UI改善のテスト ===
+
+    #[test]
+    fn test_fps_label_in_key_recommendations() {
+        // FPSラベルが"FPS"になっていることを確認
+        use crate::services::optimizer::{HardwareInfo, RecommendedSettings, GpuInfo, VideoSettings, OutputSettings};
+
+        let hardware = HardwareInfo {
+            cpu_name: "Test CPU".to_string(),
+            cpu_cores: 8,
+            gpu: Some(GpuInfo {
+                name: "NVIDIA GeForce RTX 3060".to_string(),
+                vendor: "NVIDIA".to_string(),
+                tier: 0,
+                generation: 3,
+            }),
+            total_memory_bytes: 16_000_000_000,
+        };
+
+        let recommendations = RecommendedSettings {
+            video: VideoSettings {
+                base_width: 1920,
+                base_height: 1080,
+                output_width: 1920,
+                output_height: 1080,
+                fps: 60,
+            },
+            output: OutputSettings {
+                encoder: "jim_av1_nvenc".to_string(),
+                bitrate_kbps: 6000,
+                preset: "p5".to_string(),
+                rate_control: "CBR".to_string(),
+            },
+            overall_score: 85,
+        };
+
+        let summary = generate_analysis_summary(&hardware, &recommendations, 85);
+
+        // FPS項目のラベルをチェック
+        let fps_recommendation = summary.key_recommendations.iter()
+            .find(|r| r.label == "FPS")
+            .expect("FPS recommendation should exist");
+
+        assert_eq!(fps_recommendation.label, "FPS", "FPS label should be 'FPS', not 'フレームレート'");
+    }
+
+    #[test]
+    fn test_av1_encoder_message_contains_obs_version_warning() {
+        // AV1エンコーダーの説明にOBS 30.0要件が含まれることを確認
+        use crate::services::optimizer::{HardwareInfo, RecommendedSettings, GpuInfo, VideoSettings, OutputSettings};
+
+        let hardware = HardwareInfo {
+            cpu_name: "Test CPU".to_string(),
+            cpu_cores: 8,
+            gpu: Some(GpuInfo {
+                name: "NVIDIA GeForce RTX 4060".to_string(),
+                vendor: "NVIDIA".to_string(),
+                tier: 0,
+                generation: 4,
+            }),
+            total_memory_bytes: 16_000_000_000,
+        };
+
+        let recommendations = RecommendedSettings {
+            video: VideoSettings {
+                base_width: 1920,
+                base_height: 1080,
+                output_width: 1920,
+                output_height: 1080,
+                fps: 60,
+            },
+            output: OutputSettings {
+                encoder: "jim_av1_nvenc".to_string(), // AV1エンコーダー
+                bitrate_kbps: 6000,
+                preset: "p5".to_string(),
+                rate_control: "CBR".to_string(),
+            },
+            overall_score: 90,
+        };
+
+        let summary = generate_analysis_summary(&hardware, &recommendations, 90);
+
+        // エンコーダー項目の説明をチェック
+        let encoder_recommendation = summary.key_recommendations.iter()
+            .find(|r| r.label == "エンコーダー")
+            .expect("Encoder recommendation should exist");
+
+        assert!(
+            encoder_recommendation.reason_simple.contains("AV1"),
+            "AV1 encoder message should mention AV1"
+        );
+        assert!(
+            encoder_recommendation.reason_simple.contains("OBS 30.0"),
+            "AV1 encoder message should warn about OBS 30.0 requirement"
+        );
+        assert!(
+            encoder_recommendation.reason_simple.contains("Enhanced RTMP"),
+            "AV1 encoder message should warn about Enhanced RTMP requirement"
+        );
     }
 }

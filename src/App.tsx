@@ -296,11 +296,19 @@ function AnalysisTab() {
  * 最適化タブ - ワンクリック最適化とプロファイル管理
  */
 function OptimizationTab() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // 最適化適用後の設定再取得ハンドラ
+  const handleOptimizationApplied = () => {
+    // refreshTriggerを変更してRecommendedSettingsPanelの再取得をトリガー
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
     <div className="space-y-6">
       <StreamConfigSelector />
-      <RecommendedSettingsPanel />
-      <OneClickApply />
+      <RecommendedSettingsPanel refreshTrigger={refreshTrigger} />
+      <OneClickApply onApplied={handleOptimizationApplied} />
       <ProfileList />
     </div>
   );

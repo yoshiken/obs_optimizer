@@ -94,6 +94,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     try {
       await invoke('apply_profile', { id });
       set({ selectedProfileId: id, isLoading: false });
+      // プロファイル一覧を再取得（プロファイル適用後の最新状態を反映）
+      await get().loadProfiles();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       set({ error: errorMessage, isLoading: false });

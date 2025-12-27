@@ -482,19 +482,21 @@ describe('profileStore', () => {
     });
 
     it('保存→適用→削除の一連の流れが正しく動作する', async () => {
-      mockInvoke.mockResolvedValue(undefined);
-
       const { saveProfile, applyProfile, deleteProfile } = useProfileStore.getState();
 
       // プロファイルを保存
+      mockInvoke.mockResolvedValueOnce(undefined);
       await saveProfile(mockProfile1);
       expect(useProfileStore.getState().profiles).toHaveLength(1);
 
-      // プロファイルを適用
+      // プロファイルを適用（apply_profile + get_profiles）
+      mockInvoke.mockResolvedValueOnce(undefined); // apply_profile
+      mockInvoke.mockResolvedValueOnce([mockProfile1]); // get_profiles
       await applyProfile('profile-1');
       expect(useProfileStore.getState().selectedProfileId).toBe('profile-1');
 
       // プロファイルを削除
+      mockInvoke.mockResolvedValueOnce(undefined);
       await deleteProfile('profile-1');
       expect(useProfileStore.getState().profiles).toHaveLength(0);
       expect(useProfileStore.getState().selectedProfileId).toBeNull();
