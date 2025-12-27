@@ -349,6 +349,60 @@ impl ObsClient {
         Ok(path)
     }
 
+    /// ビデオ設定を取得
+    pub async fn get_video_settings(&self) -> ObsResult<obws::responses::config::VideoSettings> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let settings = client.config().video_settings().await?;
+        Ok(settings)
+    }
+
+    /// ビデオ設定を適用
+    pub async fn set_video_settings(
+        &self,
+        settings: obws::requests::config::SetVideoSettings,
+    ) -> ObsResult<()> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        client.config().set_video_settings(settings).await?;
+        Ok(())
+    }
+
+    /// 出力一覧を取得
+    pub async fn get_output_list(&self) -> ObsResult<Vec<obws::responses::outputs::Output>> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let outputs = client.outputs().list().await?;
+        Ok(outputs)
+    }
+
+    /// 出力設定を取得
+    pub async fn get_output_settings<T: serde::de::DeserializeOwned>(
+        &self,
+        output_name: &str,
+    ) -> ObsResult<T> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let settings = client.outputs().settings(output_name).await?;
+        Ok(settings)
+    }
+
     /// 再接続を試行（シングルショット）（将来使用予定）
     ///
     /// 保存された設定を使用して単一の再接続試行を行う

@@ -195,10 +195,8 @@ pub async fn get_obs_settings() -> Result<ObsSettings, AppError> {
 
 /// ビデオ設定をOBSから取得
 async fn get_video_settings_from_obs(client: &super::ObsClient) -> Result<VideoSettings, AppError> {
-    // obws の config().video_settings() を使用
-    let video = client.with_client(|c| async {
-        c.config().video_settings().await
-    }).await?;
+    // ObsClient の専用メソッドを使用
+    let video = client.get_video_settings().await?;
 
     Ok(VideoSettings {
         base_width: video.base_width,
@@ -224,9 +222,7 @@ fn get_audio_settings_from_obs() -> Result<AudioSettings, AppError> {
 /// 出力設定をOBSから取得
 async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<OutputSettings, AppError> {
     // ストリーム出力一覧から設定を取得
-    let outputs = client.with_client(|c| async {
-        c.outputs().list().await
-    }).await?;
+    let outputs = client.get_output_list().await?;
 
     // "simple_stream_output" または配信用出力を探す
     let stream_output = outputs.iter()
@@ -236,9 +232,8 @@ async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<Outpu
     // エンコーダー設定を取得
     if let Some(output) = stream_output {
         // 出力の設定を取得
-        let settings_result: Result<StreamEncoderSettings, _> = client.with_client(|c| async {
-            c.outputs().settings(&output.name).await
-        }).await;
+        let settings_result: Result<StreamEncoderSettings, _> =
+            client.get_output_settings(&output.name).await;
 
         if let Ok(settings) = settings_result {
             return Ok(OutputSettings {
@@ -279,9 +274,7 @@ pub async fn apply_video_settings(
     }
 
     // 現在のビデオ設定を取得してベース解像度を維持
-    let current = client.with_client(|c| async {
-        c.config().video_settings().await
-    }).await?;
+    let current = client.get_video_settings().await?;
 
     // obws の SetVideoSettings を構築
     use obws::requests::config::SetVideoSettings;
@@ -294,9 +287,7 @@ pub async fn apply_video_settings(
         output_height: Some(output_height),
     };
 
-    client.with_client(|c| async {
-        c.config().set_video_settings(settings).await
-    }).await?;
+    client.set_video_settings(settings).await?;
 
     Ok(())
 }
