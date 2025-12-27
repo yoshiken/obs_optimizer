@@ -3,6 +3,9 @@
 // PCスペックに関係なく推奨される固定設定値
 // 参考: obs_guide.md
 
+// 将来のUI/API拡張用メソッドの警告を抑制
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 
 /// レート制御方式

@@ -3,6 +3,9 @@
 // GPU名から世代を判定し、エンコーダー能力を提供する
 // 判定ロジックは変更しやすいようテーブル駆動で実装
 
+// 将来のUI/API拡張用メソッドの警告を抑制
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 
 /// GPU世代の分類

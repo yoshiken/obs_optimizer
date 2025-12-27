@@ -3,6 +3,9 @@
 // GPU、CPU、メモリの各ティアを統合し、
 // システム全体の配信能力を評価する
 
+// 将来のUI/API拡張用メソッドの警告を抑制
+#![allow(dead_code)]
+
 use super::gpu_detection::{CpuTier, EffectiveTier, MemoryTier};
 use serde::{Deserialize, Serialize};
 
