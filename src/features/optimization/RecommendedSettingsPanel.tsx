@@ -73,8 +73,17 @@ export function RecommendedSettingsPanel({ refreshTrigger }: RecommendedSettings
   const platform = config?.platform ?? null;
   const streamStyle = config?.streamStyle ?? null;
 
-  // データ取得（プラットフォーム・スタイル変更時、または最適化適用後に再取得）
+  // 選択状態を判定
+  const isConfigured = platform !== null && streamStyle !== null;
+
+  // データ取得（プラットフォーム・スタイル選択後、または最適化適用後に再取得）
   useEffect(() => {
+    // 未選択時はデータ取得しない
+    if (!isConfigured) {
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -103,7 +112,28 @@ export function RecommendedSettingsPanel({ refreshTrigger }: RecommendedSettings
     };
 
     void fetchData();
-  }, [platform, streamStyle, refreshTrigger]); // refreshTriggerを依存配列に追加
+  }, [platform, streamStyle, refreshTrigger, isConfigured]);
+
+  // 未選択時はガイダンスを表示
+  if (!isConfigured) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="text-center py-12" role="status" aria-live="polite">
+          <div className="text-4xl mb-4">🎯</div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            推奨設定を表示するには
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            {!platform && !streamStyle
+              ? 'まず配信プラットフォームと配信スタイルを選択してください'
+              : !platform
+                ? '配信プラットフォームを選択してください'
+                : '配信スタイルを選択してください'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ローディング状態
   if (loading) {
@@ -140,8 +170,34 @@ export function RecommendedSettingsPanel({ refreshTrigger }: RecommendedSettings
   // 推奨適用後のスコアを算出（qualityScoreベース + 20%改善を想定）
   const potentialScore = Math.min(100, Math.round(qualityScore * 1.2));
 
+  // プラットフォーム・スタイルの表示名
+  const platformLabels: Record<string, string> = {
+    youtube: 'YouTube',
+    twitch: 'Twitch',
+    niconico: 'ニコニコ',
+    twitcasting: 'ツイキャス',
+    other: 'その他',
+  };
+  const styleLabels: Record<string, string> = {
+    game: 'ゲーム配信',
+    talk: 'トーク配信',
+    music: '音楽配信',
+    art: 'お絵かき配信',
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      {/* 選択状態の表示 */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 px-6 py-3 border-b border-blue-200 dark:border-blue-800">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-blue-600 dark:text-blue-400">選択中:</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {platformLabels[platform] ?? platform} × {styleLabels[streamStyle] ?? streamStyle}
+          </span>
+          <span className="text-gray-600 dark:text-gray-400">に最適化された設定</span>
+        </div>
+      </div>
+
       {/* ヘッダー */}
       <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  getEncoderDisplayLabel,
-  getEncoderType,
   getEncoderCodec,
+  getEncoderDisplayLabel,
   getEncoderInfo,
+  getEncoderType,
 } from './encoderLabels';
 
 describe('encoderLabels', () => {
