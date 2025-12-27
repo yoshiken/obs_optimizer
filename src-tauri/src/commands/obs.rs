@@ -14,6 +14,7 @@ use crate::obs::{
     ConnectionChangedPayload,
 };
 use crate::services::obs_service;
+use crate::storage::config::{load_config, save_config};
 
 /// レート制限付きログ出力
 ///
@@ -84,6 +85,9 @@ pub struct ObsConnectionParams {
     pub host: String,
     pub port: u16,
     pub password: Option<String>,
+    /// パスワードを保存するか
+    #[serde(default)]
+    pub save_password: bool,
 }
 
 impl From<ObsConnectionParams> for ConnectionConfig {
@@ -109,6 +113,10 @@ pub async fn connect_obs(
     app_handle: AppHandle,
     params: ObsConnectionParams,
 ) -> Result<(), AppError> {
+    // パスワード保存フラグとパスワードを先に取得
+    let save_password = params.save_password;
+    let password_to_save = params.password.clone();
+
     let config: ConnectionConfig = params.into();
     let service = obs_service();
 
@@ -117,6 +125,25 @@ pub async fn connect_obs(
 
     // 接続実行（サービス層経由）
     service.connect(config.clone()).await?;
+
+    // 接続成功: 設定を保存
+    if let Ok(mut app_config) = load_config() {
+        app_config.connection.last_host = config.host.clone();
+        app_config.connection.last_port = config.port;
+        app_config.connection.save_password = save_password;
+
+        // パスワード保存が有効な場合のみパスワードを保存
+        if save_password {
+            app_config.connection.saved_password = password_to_save;
+        } else {
+            // 無効になった場合は既存のパスワードも削除
+            app_config.connection.saved_password = None;
+        }
+
+        if let Err(e) = save_config(&app_config) {
+            rate_limited_log::log_error(&format!("Failed to save connection config: {e}"));
+        }
+    }
 
     // 接続成功イベントを発行
     let emitter = ObsEventEmitter::new(app_handle);
@@ -270,4 +297,31 @@ pub async fn stop_recording(app_handle: AppHandle) -> Result<String, AppError> {
     }
 
     Ok(path)
+}
+
+/// 保存された接続情報を取得
+///
+/// # Returns
+/// 保存された接続情報（ホスト、ポート、パスワード保存フラグ、保存されたパスワード）
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedConnectionInfo {
+    pub host: String,
+    pub port: u16,
+    pub save_password: bool,
+    pub saved_password: Option<String>,
+    pub auto_connect_on_startup: bool,
+}
+
+#[tauri::command]
+pub async fn get_saved_connection() -> Result<SavedConnectionInfo, AppError> {
+    let config = load_config()?;
+
+    Ok(SavedConnectionInfo {
+        host: config.connection.last_host,
+        port: config.connection.last_port,
+        save_password: config.connection.save_password,
+        saved_password: config.connection.saved_password,
+        auto_connect_on_startup: config.connection.auto_connect_on_startup,
+    })
 }

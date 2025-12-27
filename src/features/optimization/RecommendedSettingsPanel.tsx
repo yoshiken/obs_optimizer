@@ -13,7 +13,9 @@ import type {
 
 // フロントエンド型からバックエンド型への変換
 function convertPlatform(platform: string | null): StreamingPlatform | undefined {
-  if (!platform) return undefined;
+  if (!platform) {
+    return undefined;
+  }
   const map: Record<string, StreamingPlatform> = {
     youtube: 'youTube',
     twitch: 'twitch',
@@ -25,7 +27,9 @@ function convertPlatform(platform: string | null): StreamingPlatform | undefined
 }
 
 function convertStyle(style: string | null): StreamingStyle | undefined {
-  if (!style) return undefined;
+  if (!style) {
+    return undefined;
+  }
   const map: Record<string, StreamingStyle> = {
     game: 'gaming',
     talk: 'talk',

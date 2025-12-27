@@ -70,6 +70,7 @@ pub fn run() {
             commands::connect_obs,
             commands::disconnect_obs,
             commands::get_obs_status,
+            commands::get_saved_connection,
             // OBSシーン操作コマンド
             commands::get_scene_list,
             commands::set_current_scene,

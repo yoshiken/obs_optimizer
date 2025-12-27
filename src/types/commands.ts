@@ -9,6 +9,17 @@ export interface ObsConnectionParams {
   host: string;
   port: number;
   password?: string;
+  /** パスワードを保存するか */
+  savePassword?: boolean;
+}
+
+/** 保存された接続情報 */
+export interface SavedConnectionInfo {
+  host: string;
+  port: number;
+  savePassword: boolean;
+  savedPassword: string | null;
+  autoConnectOnStartup: boolean;
 }
 
 export interface ObsStatus {
@@ -396,6 +407,7 @@ export interface Commands {
   connect_obs: (params: ObsConnectionParams) => Promise<void>;
   disconnect_obs: () => Promise<void>;
   get_obs_status: () => Promise<ObsStatus>;
+  get_saved_connection: () => Promise<SavedConnectionInfo>;
 
   // OBSシーン操作
   get_scene_list: () => Promise<string[]>;

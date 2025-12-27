@@ -38,6 +38,9 @@ pub struct ConnectionConfig {
     pub last_port: u16,
     /// パスワードを保存するか（セキュリティ上推奨しない）
     pub save_password: bool,
+    /// 保存されたパスワード（save_passwordがtrueの場合のみ使用）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_password: Option<String>,
     /// 起動時に自動接続するか
     pub auto_connect_on_startup: bool,
     /// 接続タイムアウト（秒）
@@ -50,6 +53,7 @@ impl Default for ConnectionConfig {
             last_host: "localhost".to_string(),
             last_port: 4455,
             save_password: false,
+            saved_password: None,
             auto_connect_on_startup: false,
             connection_timeout_secs: 10,
         }

@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useObsStore } from '../../stores/obsStore';
-import type { ObsConnectionParams } from '../../types/commands';
+import type { ObsConnectionParams, SavedConnectionInfo } from '../../types/commands';
 import { translateError } from '../../utils/errorTranslation';
 
 /** ポート番号のバリデーション（Backend側と統一: 1024-65535） */
@@ -37,12 +38,31 @@ export function ObsConnectionPanel() {
   } = useObsStore();
 
   // フォーム状態（前回の接続設定があれば使用）
-  // ※パスワードはセキュリティのため復元しない
   const [host, setHost] = useState(lastConnectionParams?.host ?? 'localhost');
   // ポートは文字列として管理し、バリデーションを行う
   const [portInput, setPortInput] = useState(String(lastConnectionParams?.port ?? 4455));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [savePassword, setSavePassword] = useState(false);
+
+  // 保存された接続情報を読み込む
+  useEffect(() => {
+    const loadSavedConnection = async () => {
+      try {
+        const saved = await invoke<SavedConnectionInfo>('get_saved_connection');
+        setHost(saved.host);
+        setPortInput(String(saved.port));
+        setSavePassword(saved.savePassword);
+        // パスワードが保存されていれば復元
+        if (saved.savedPassword) {
+          setPassword(saved.savedPassword);
+        }
+      } catch (err) {
+        console.warn('保存された接続情報の読み込みに失敗:', err);
+      }
+    };
+    void loadSavedConnection();
+  }, []);
 
   // ポートのバリデーション結果をメモ化
   const portValidation = useMemo(() => validatePort(portInput), [portInput]);
@@ -66,16 +86,19 @@ export function ObsConnectionPanel() {
       host,
       port: portValidation.port,
       password: password || undefined,
+      savePassword,
     };
 
     try {
       await connect(params);
-      // 接続成功後、セキュリティのためパスワードをクリア
-      setPassword('');
+      // パスワード保存が無効の場合のみパスワードをクリア
+      if (!savePassword) {
+        setPassword('');
+      }
     } catch {
       // エラーはストアで処理される
     }
-  }, [host, portValidation, password, connect]);
+  }, [host, portValidation, password, savePassword, connect]);
 
   // 切断ハンドラ
   const handleDisconnect = useCallback(async () => {
@@ -279,6 +302,24 @@ export function ObsConnectionPanel() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* パスワード保存チェックボックス */}
+        <div className="flex items-center gap-2">
+          <input
+            id="save-password"
+            type="checkbox"
+            checked={savePassword}
+            onChange={(e) => setSavePassword(e.target.checked)}
+            disabled={isConnected || isConnecting}
+            className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <label
+            htmlFor="save-password"
+            className="text-sm text-gray-700 dark:text-gray-200"
+          >
+            パスワードを保存する
+          </label>
         </div>
 
         {/* 接続/切断ボタン */}
