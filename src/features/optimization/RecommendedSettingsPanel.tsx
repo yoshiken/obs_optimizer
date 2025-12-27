@@ -1,11 +1,39 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useConfigStore } from '../../stores/configStore';
 import type {
   AnalysisResult,
+  AnalyzeSettingsRequest,
   KeyRecommendation,
   ObsSettings,
+  StreamingPlatform,
+  StreamingStyle,
   SystemInfo,
 } from '../../types/commands';
+
+// フロントエンド型からバックエンド型への変換
+function convertPlatform(platform: string | null): StreamingPlatform | undefined {
+  if (!platform) return undefined;
+  const map: Record<string, StreamingPlatform> = {
+    youtube: 'youTube',
+    twitch: 'twitch',
+    niconico: 'nicoNico',
+    twitcasting: 'twitCasting',
+    other: 'other',
+  };
+  return map[platform] ?? 'other';
+}
+
+function convertStyle(style: string | null): StreamingStyle | undefined {
+  if (!style) return undefined;
+  const map: Record<string, StreamingStyle> = {
+    game: 'gaming',
+    talk: 'talk',
+    music: 'music',
+    art: 'art',
+  };
+  return map[style] ?? 'gaming';
+}
 
 /**
  * 推奨設定パネル
@@ -15,28 +43,40 @@ import type {
  * - 現在値 vs 推奨値の比較テーブル
  * - 推奨理由リスト
  * - スコア表示（現在 → 推奨適用後）
+ * - プラットフォーム/スタイル変更時のリアルタイム更新
  *
  * 使用するTauriコマンド:
  * - analyze_settings: 診断結果と推奨設定を取得
  * - get_obs_settings_command: 現在のOBS設定を取得
  */
 export function RecommendedSettingsPanel() {
+  const { config } = useConfigStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [currentSettings, setCurrentSettings] = useState<ObsSettings | null>(null);
   const [showHardwareInfo, setShowHardwareInfo] = useState(false);
 
-  // データ取得
+  // configStoreからプラットフォーム・スタイルを取得
+  const platform = config?.platform ?? null;
+  const streamStyle = config?.streamStyle ?? null;
+
+  // データ取得（プラットフォーム・スタイル変更時に再取得）
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        // リクエストパラメータを構築
+        const request: AnalyzeSettingsRequest = {
+          platform: convertPlatform(platform),
+          style: convertStyle(streamStyle),
+        };
+
         // 並列でデータ取得
         const [analysis, current] = await Promise.all([
-          invoke<AnalysisResult>('analyze_settings'),
+          invoke<AnalysisResult>('analyze_settings', { request }),
           invoke<ObsSettings>('get_obs_settings_command'),
         ]);
 
@@ -51,7 +91,7 @@ export function RecommendedSettingsPanel() {
     };
 
     void fetchData();
-  }, []);
+  }, [platform, streamStyle]); // プラットフォーム・スタイル変更時に再取得
 
   // ローディング状態
   if (loading) {

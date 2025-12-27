@@ -9,7 +9,7 @@ use crate::services::optimizer::RecommendationEngine;
 use crate::storage::metrics_history::SystemMetricsSnapshot;
 use crate::monitor::get_memory_info;
 use crate::obs::get_obs_settings;
-use crate::storage::config::load_config;
+use crate::storage::config::{load_config, StreamingPlatform, StreamingStyle};
 use crate::commands::utils::get_hardware_info;
 use serde::{Deserialize, Serialize};
 
@@ -93,6 +93,18 @@ pub struct ObsSetting {
     pub priority: String, // "critical" | "recommended" | "optional"
 }
 
+/// 設定分析リクエスト（オプショナルパラメータ付き）
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzeSettingsRequest {
+    /// 配信プラットフォーム（省略時は設定ファイルから取得）
+    pub platform: Option<StreamingPlatform>,
+    /// 配信スタイル（省略時は設定ファイルから取得）
+    pub style: Option<StreamingStyle>,
+    /// ネットワーク速度（Mbps、省略時は設定ファイルから取得）
+    pub network_speed_mbps: Option<f64>,
+}
+
 /// システム環境情報
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -161,10 +173,15 @@ pub async fn analyze_problems(request: AnalyzeProblemsRequest) -> Result<Analyze
 
 /// OBS設定を分析して推奨事項を返す
 ///
+/// # Arguments
+/// * `request` - 分析リクエスト（プラットフォーム・スタイルをオーバーライド可能）
+///
 /// # Returns
 /// 分析結果（品質スコア、推奨設定、システム情報）
 #[tauri::command]
-pub async fn analyze_settings() -> Result<AnalysisResult, AppError> {
+pub async fn analyze_settings(
+    request: Option<AnalyzeSettingsRequest>,
+) -> Result<AnalysisResult, AppError> {
     // 現在のOBS設定を取得
     let obs_settings = get_obs_settings().await?;
 
@@ -174,13 +191,24 @@ pub async fn analyze_settings() -> Result<AnalysisResult, AppError> {
     // アプリケーション設定を取得
     let app_config = load_config()?;
 
+    // リクエストパラメータまたは設定ファイルから値を取得
+    let platform = request.as_ref()
+        .and_then(|r| r.platform)
+        .unwrap_or(app_config.streaming_mode.platform);
+    let style = request.as_ref()
+        .and_then(|r| r.style)
+        .unwrap_or(app_config.streaming_mode.style);
+    let network_speed = request.as_ref()
+        .and_then(|r| r.network_speed_mbps)
+        .unwrap_or(app_config.streaming_mode.network_speed_mbps);
+
     // 推奨設定を計算
     let recommendations = RecommendationEngine::calculate_recommendations(
         &hardware_info,
         &obs_settings,
-        app_config.streaming_mode.platform,
-        app_config.streaming_mode.style,
-        app_config.streaming_mode.network_speed_mbps,
+        platform,
+        style,
+        network_speed,
     );
 
     // 推奨事項リストを構築

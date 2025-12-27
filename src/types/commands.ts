@@ -326,6 +326,16 @@ export interface SystemInfo {
   availableMemoryMb: number;
 }
 
+/** 設定分析リクエスト */
+export interface AnalyzeSettingsRequest {
+  /** 配信プラットフォーム（省略時は設定ファイルから取得） */
+  platform?: StreamingPlatform;
+  /** 配信スタイル（省略時は設定ファイルから取得） */
+  style?: StreamingStyle;
+  /** ネットワーク速度（Mbps、省略時は設定ファイルから取得） */
+  networkSpeedMbps?: number;
+}
+
 /** 診断結果 */
 export interface AnalysisResult {
   /** 全体の品質スコア（0-100） */
@@ -402,7 +412,7 @@ export interface Commands {
   save_app_config: (config: AppConfig) => Promise<void>;
 
   // 診断・最適化
-  analyze_settings: () => Promise<AnalysisResult>;
+  analyze_settings: (request?: AnalyzeSettingsRequest) => Promise<AnalysisResult>;
   apply_optimization: (params: {
     preset: OptimizationPreset;
     selectedKeys?: string[];
