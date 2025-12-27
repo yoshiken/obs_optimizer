@@ -47,6 +47,74 @@ pub enum CpuTier {
     HighEnd,
 }
 
+impl CpuTier {
+    /// ティアのスコアを取得（統合評価用）
+    pub fn score(&self) -> u8 {
+        match self {
+            Self::HighEnd => 5,
+            Self::UpperMiddle => 4,
+            Self::Middle => 3,
+            Self::Entry => 2,
+        }
+    }
+
+    /// ティアの表示ラベルを取得
+    pub fn display_label(&self) -> &'static str {
+        match self {
+            Self::HighEnd => "ハイエンド",
+            Self::UpperMiddle => "アッパーミドル",
+            Self::Middle => "ミドル",
+            Self::Entry => "エントリー",
+        }
+    }
+}
+
+/// メモリ容量のティア分類
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryTier {
+    /// 豊富（32GB以上）- 1440p/4K対応
+    Abundant,
+    /// 十分（16-31GB）- 1080p60標準
+    Adequate,
+    /// 標準（8-15GB）- 1080p30可能
+    Standard,
+    /// エントリー（8GB未満）- 720p推奨
+    Entry,
+}
+
+impl MemoryTier {
+    /// メモリ容量（GB）からティアを判定
+    pub fn from_gb(memory_gb: f64) -> Self {
+        match memory_gb {
+            m if m >= 32.0 => Self::Abundant,
+            m if m >= 16.0 => Self::Adequate,
+            m if m >= 8.0 => Self::Standard,
+            _ => Self::Entry,
+        }
+    }
+
+    /// ティアのスコアを取得（統合評価用）
+    pub fn score(&self) -> u8 {
+        match self {
+            Self::Abundant => 5,
+            Self::Adequate => 4,
+            Self::Standard => 3,
+            Self::Entry => 2,
+        }
+    }
+
+    /// ティアの表示ラベルを取得
+    pub fn display_label(&self) -> &'static str {
+        match self {
+            Self::Abundant => "豊富",
+            Self::Adequate => "十分",
+            Self::Standard => "標準",
+            Self::Entry => "エントリー",
+        }
+    }
+}
+
 /// GPUの性能グレード（同一世代内での性能差）
 ///
 /// xx90, xx80などの型番による分類
@@ -86,6 +154,32 @@ pub enum EffectiveTier {
     TierD,
     /// 最低（GTX 1050, RX 6500, 内蔵GPU等）
     TierE,
+}
+
+impl EffectiveTier {
+    /// ティアのスコアを取得（統合評価用）
+    pub fn score(&self) -> u8 {
+        match self {
+            Self::TierS => 6,
+            Self::TierA => 5,
+            Self::TierB => 4,
+            Self::TierC => 3,
+            Self::TierD => 2,
+            Self::TierE => 1,
+        }
+    }
+
+    /// ティアの表示ラベルを取得
+    pub fn display_label(&self) -> &'static str {
+        match self {
+            Self::TierS => "最高性能",
+            Self::TierA => "高性能",
+            Self::TierB => "中上位",
+            Self::TierC => "中位",
+            Self::TierD => "下位",
+            Self::TierE => "最低",
+        }
+    }
 }
 
 // 後方互換性のためのエイリアス（テストで使用）
@@ -1042,5 +1136,53 @@ mod tests {
         assert!(!should_enable_multipass(EffectiveTier::TierC));
         assert!(!should_enable_multipass(EffectiveTier::TierD));
         assert!(!should_enable_multipass(EffectiveTier::TierE));
+    }
+
+    // === MemoryTier テスト ===
+
+    #[test]
+    fn test_memory_tier_from_gb() {
+        assert_eq!(MemoryTier::from_gb(64.0), MemoryTier::Abundant);
+        assert_eq!(MemoryTier::from_gb(32.0), MemoryTier::Abundant);
+        assert_eq!(MemoryTier::from_gb(31.9), MemoryTier::Adequate);
+        assert_eq!(MemoryTier::from_gb(24.0), MemoryTier::Adequate);
+        assert_eq!(MemoryTier::from_gb(16.0), MemoryTier::Adequate);
+        assert_eq!(MemoryTier::from_gb(15.9), MemoryTier::Standard);
+        assert_eq!(MemoryTier::from_gb(12.0), MemoryTier::Standard);
+        assert_eq!(MemoryTier::from_gb(8.0), MemoryTier::Standard);
+        assert_eq!(MemoryTier::from_gb(7.9), MemoryTier::Entry);
+        assert_eq!(MemoryTier::from_gb(6.0), MemoryTier::Entry);
+        assert_eq!(MemoryTier::from_gb(4.0), MemoryTier::Entry);
+    }
+
+    #[test]
+    fn test_memory_tier_score() {
+        assert_eq!(MemoryTier::Abundant.score(), 5);
+        assert_eq!(MemoryTier::Adequate.score(), 4);
+        assert_eq!(MemoryTier::Standard.score(), 3);
+        assert_eq!(MemoryTier::Entry.score(), 2);
+
+        // スコアの順序
+        assert!(MemoryTier::Abundant.score() > MemoryTier::Adequate.score());
+        assert!(MemoryTier::Adequate.score() > MemoryTier::Standard.score());
+        assert!(MemoryTier::Standard.score() > MemoryTier::Entry.score());
+    }
+
+    #[test]
+    fn test_cpu_tier_score() {
+        assert_eq!(CpuTier::HighEnd.score(), 5);
+        assert_eq!(CpuTier::UpperMiddle.score(), 4);
+        assert_eq!(CpuTier::Middle.score(), 3);
+        assert_eq!(CpuTier::Entry.score(), 2);
+    }
+
+    #[test]
+    fn test_effective_tier_score() {
+        assert_eq!(EffectiveTier::TierS.score(), 6);
+        assert_eq!(EffectiveTier::TierA.score(), 5);
+        assert_eq!(EffectiveTier::TierB.score(), 4);
+        assert_eq!(EffectiveTier::TierC.score(), 3);
+        assert_eq!(EffectiveTier::TierD.score(), 2);
+        assert_eq!(EffectiveTier::TierE.score(), 1);
     }
 }

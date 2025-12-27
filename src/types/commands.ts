@@ -361,6 +361,10 @@ export interface AnalysisResult {
   analyzedAt: number;
   /** 初心者向けサマリー */
   summary: AnalysisSummary;
+  /** システム能力評価（GPU/CPU/メモリ統合判定） */
+  systemCapability?: SystemCapability;
+  /** スペック非依存の静的設定 */
+  staticSettings?: StaticSettings;
 }
 
 /** 分析サマリー（初心者向け） */
@@ -497,6 +501,84 @@ export interface Commands {
 
 export type StreamingPlatform = 'youTube' | 'twitch' | 'nicoNico' | 'twitCasting' | 'other';
 export type StreamingStyle = 'talk' | 'gaming' | 'music' | 'art' | 'other';
+
+// ========================================
+// システム評価関連の型（Phase 5）
+// ========================================
+
+/** メモリティアの分類 */
+export type MemoryTier = 'abundant' | 'adequate' | 'standard' | 'entry';
+
+/** 統合ティアの分類 */
+export type EffectiveTier = 'tierS' | 'tierA' | 'tierB' | 'tierC' | 'tierD' | 'tierE';
+
+/** 総合評価ティア */
+export type OverallTier = 'ultra' | 'high' | 'medium' | 'low' | 'minimal';
+
+/** ボトルネック要因 */
+export type BottleneckFactor = 'none' | 'gpu' | 'cpu' | 'memory';
+
+/** システム能力評価 */
+export interface SystemCapability {
+  /** GPUティア */
+  gpuTier: EffectiveTier;
+  /** GPU名称 */
+  gpuName: string;
+  /** CPUティア */
+  cpuTier: CpuTier;
+  /** CPUコア数 */
+  cpuCores: number;
+  /** メモリティア */
+  memoryTier: MemoryTier;
+  /** メモリ容量（GB） */
+  memoryGb: number;
+  /** 総合評価ティア */
+  overallTier: OverallTier;
+  /** ボトルネック要因 */
+  bottleneck: BottleneckFactor;
+  /** 能力の説明文 */
+  description: string;
+}
+
+/** コンポーネント別評価 */
+export interface ComponentEvaluation {
+  /** コンポーネント名（GPU/CPU/Memory） */
+  name: string;
+  /** ティア */
+  tier: string;
+  /** ティアラベル（表示用） */
+  tierLabel: string;
+  /** 能力一覧 */
+  capabilities: string[];
+  /** 影響を受ける設定項目 */
+  affectedSettings: string[];
+}
+
+/** 静的設定（スペックに依存しない固定推奨値） */
+export interface StaticSettings {
+  /** サンプルレート（Hz） */
+  sampleRate: number;
+  /** 音声ビットレート（kbps） */
+  audioBitrate: number;
+  /** キーフレーム間隔（秒） */
+  keyframeInterval: number;
+  /** レートコントロール */
+  rateControl: string;
+  /** カラーフォーマット */
+  colorFormat: string;
+  /** カラースペース */
+  colorSpace: string;
+  /** カラーレンジ */
+  colorRange: string;
+  /** H.264プロファイル */
+  profile: string;
+  /** Bフレーム数 */
+  bFrames: number;
+  /** 先読み（Look-Ahead） */
+  lookAhead: boolean;
+  /** Psycho Visual Tuning */
+  psychoVisualTuning: boolean;
+}
 
 // GPU世代の分類
 export type GpuGeneration =

@@ -6,6 +6,9 @@ use crate::error::AppError;
 use crate::services::analyzer::{ProblemAnalyzer, ProblemReport};
 use crate::services::system::system_monitor_service;
 use crate::services::optimizer::RecommendationEngine;
+use crate::services::gpu_detection::{MemoryTier, EffectiveTier, determine_cpu_tier, detect_gpu_generation, detect_gpu_grade, calculate_effective_tier};
+use crate::services::system_capability::SystemCapability;
+use crate::services::static_settings::StaticSettings;
 use crate::storage::metrics_history::SystemMetricsSnapshot;
 use crate::monitor::get_memory_info;
 use crate::obs::get_obs_settings;
@@ -49,6 +52,12 @@ pub struct AnalysisResult {
     pub analyzed_at: i64,
     /// 初心者向けサマリー
     pub summary: AnalysisSummary,
+    /// システム能力評価（GPU/CPU/メモリ統合判定）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_capability: Option<SystemCapability>,
+    /// スペック非依存の静的設定
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub static_settings: Option<StaticSettings>,
 }
 
 /// 分析サマリー（初心者向け）
@@ -302,6 +311,37 @@ pub async fn analyze_settings(
         quality_score,
     );
 
+    // システム能力評価を計算
+    let system_capability = {
+        let gpu_name = hardware_info.gpu.as_ref()
+            .map(|g| g.name.clone())
+            .unwrap_or_else(|| "統合GPU".to_string());
+
+        let gpu_tier = if let Some(gpu) = &hardware_info.gpu {
+            let generation = detect_gpu_generation(&gpu.name);
+            let grade = detect_gpu_grade(&gpu.name);
+            calculate_effective_tier(generation, grade)
+        } else {
+            EffectiveTier::TierE
+        };
+
+        let cpu_tier = determine_cpu_tier(hardware_info.cpu_cores);
+        let memory_gb = hardware_info.total_memory_gb;
+        let memory_tier = MemoryTier::from_gb(memory_gb);
+
+        Some(SystemCapability::new(
+            gpu_tier,
+            gpu_name,
+            cpu_tier,
+            hardware_info.cpu_cores,
+            memory_tier,
+            memory_gb,
+        ))
+    };
+
+    // 静的設定（配信向けデフォルト）
+    let static_settings = Some(StaticSettings::for_streaming());
+
     Ok(AnalysisResult {
         quality_score,
         issue_count: recommendation_list.len(),
@@ -309,6 +349,8 @@ pub async fn analyze_settings(
         system_info,
         analyzed_at: chrono::Utc::now().timestamp(),
         summary,
+        system_capability,
+        static_settings,
     })
 }
 

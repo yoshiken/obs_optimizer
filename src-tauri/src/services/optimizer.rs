@@ -239,13 +239,16 @@ impl RecommendationEngine {
             network_speed_mbps,
         );
 
+        // 縮小フィルタ推奨
+        let downscale_filter = Self::recommend_downscale_filter(style).to_string();
+
         // スコア算出
         let score = Self::calculate_score(current_settings, &RecommendedSettings {
             video: RecommendedVideoSettings {
                 output_width: recommended_width,
                 output_height: recommended_height,
                 fps: recommended_fps,
-                downscale_filter: "Lanczos".to_string(),
+                downscale_filter: downscale_filter.clone(),
             },
             audio: RecommendedAudioSettings {
                 sample_rate: 48000,
@@ -267,7 +270,7 @@ impl RecommendationEngine {
                 output_width: recommended_width,
                 output_height: recommended_height,
                 fps: recommended_fps,
-                downscale_filter: "Lanczos".to_string(),
+                downscale_filter,
             },
             audio: RecommendedAudioSettings {
                 sample_rate: 48000,
@@ -434,6 +437,21 @@ impl RecommendationEngine {
             StreamingPlatform::NicoNico => base_bitrate.min(128), // ニコニコは128kbps推奨
             StreamingPlatform::TwitCasting => base_bitrate, // ツイキャスは上限なし
             StreamingPlatform::Other => base_bitrate.min(160),
+        }
+    }
+
+    /// 縮小フィルタ推奨
+    ///
+    /// 配信スタイルに応じて最適なダウンスケールフィルタを選択
+    /// - ゲーム/Esports: Bicubic (16サンプル、GPU負荷中)
+    /// - トーク/IRL: Lanczos (32サンプル、カメラ映像向け)
+    fn recommend_downscale_filter(style: StreamingStyle) -> &'static str {
+        match style {
+            StreamingStyle::Gaming => "Bicubic",
+            StreamingStyle::Talk => "Lanczos",
+            StreamingStyle::Music => "Lanczos",  // カメラ重視
+            StreamingStyle::Art => "Bicubic",    // 画面キャプチャ重視
+            StreamingStyle::Other => "Bicubic",  // デフォルトはゲーム向け
         }
     }
 

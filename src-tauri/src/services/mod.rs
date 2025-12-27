@@ -25,6 +25,8 @@ pub mod analyzer;
 pub mod exporter;
 pub mod gpu_detection;
 pub mod encoder_selector;
+pub mod system_capability;
+pub mod static_settings;
 
 // 公開エクスポート
 // 将来的な拡張や外部クレートからの利用を想定した再エクスポート
@@ -43,6 +45,10 @@ pub use analyzer::{ProblemAnalyzer, ProblemReport, ProblemCategory};
 #[allow(unused_imports)]
 pub use exporter::{ReportExporter, DiagnosticReport, PerformanceEvaluation};
 #[allow(unused_imports)]
-pub use gpu_detection::{GpuGeneration, CpuTier, detect_gpu_generation, get_encoder_capability, determine_cpu_tier};
+pub use gpu_detection::{GpuGeneration, CpuTier, MemoryTier, EffectiveTier, detect_gpu_generation, get_encoder_capability, determine_cpu_tier};
 #[allow(unused_imports)]
 pub use encoder_selector::{RecommendedEncoder, EncoderSelectionContext, EncoderSelector};
+#[allow(unused_imports)]
+pub use system_capability::{SystemCapability, OverallTier, BottleneckFactor};
+#[allow(unused_imports)]
+pub use static_settings::{StaticSettings, StaticSettingReason, RateControl, ColorFormat, ColorSpace, ColorRange, H264Profile};
