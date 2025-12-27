@@ -8,8 +8,6 @@ use super::gpu_detection::{
     adjust_preset_for_effective_tier, calculate_effective_tier, get_encoder_capability,
     should_enable_multipass,
 };
-// 後方互換性のためのエイリアス
-pub use super::gpu_detection::GpuTier;
 use crate::storage::config::{StreamingPlatform, StreamingStyle};
 use serde::{Deserialize, Serialize};
 
@@ -81,7 +79,8 @@ impl EncoderSelector {
     pub fn select_encoder(context: &EncoderSelectionContext) -> RecommendedEncoder {
         // プラットフォーム別の制約を確認
         let platform_supports_av1 = matches!(context.platform, StreamingPlatform::YouTube);
-        let platform_supports_hevc = matches!(
+        // HEVC対応プラットフォーム（将来の拡張用）
+        let _platform_supports_hevc = matches!(
             context.platform,
             StreamingPlatform::YouTube | StreamingPlatform::TwitCasting
         );

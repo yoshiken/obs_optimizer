@@ -86,7 +86,8 @@ pub enum EffectiveTier {
     TierE,
 }
 
-// 後方互換性のためのエイリアス
+// 後方互換性のためのエイリアス（テストで使用）
+#[allow(dead_code)]
 pub type GpuTier = GpuGrade;
 
 /// GPU世代ごとのエンコーダー能力
@@ -433,7 +434,8 @@ pub fn detect_gpu_grade(gpu_name: &str) -> GpuGrade {
     GpuGrade::Unknown
 }
 
-/// 後方互換性のためのエイリアス
+/// 後方互換性のためのエイリアス（テストで使用）
+#[allow(dead_code)]
 pub fn detect_gpu_tier(gpu_name: &str) -> GpuTier {
     detect_gpu_grade(gpu_name)
 }
@@ -531,7 +533,8 @@ pub fn should_enable_multipass(effective_tier: EffectiveTier) -> bool {
     matches!(effective_tier, EffectiveTier::TierS | EffectiveTier::TierA | EffectiveTier::TierB)
 }
 
-/// 後方互換性のための旧API
+/// 後方互換性のための旧API（テストで使用）
+#[allow(dead_code)]
 pub fn adjust_preset_for_tier(base_preset: u8, tier: GpuTier) -> u8 {
     // 旧APIでは世代情報がないため、Adaと仮定して計算
     let effective = calculate_effective_tier(GpuGeneration::NvidiaAda, tier);
