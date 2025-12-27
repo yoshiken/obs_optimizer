@@ -11,6 +11,10 @@ node_modules/
 dist/
 .pnpm-store/
 
+# Python
+__pycache__/
+*.pyc
+
 # Tauri
 src-tauri/target/
 
@@ -39,7 +43,9 @@ npm-debug.log*
 .xwin-sdk/
 
 # Claude Code session files (development only)
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/agents/
 .claude-locks/
 
 # Temporary files
