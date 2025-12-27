@@ -11,6 +11,23 @@
 | 技術 | Tauri 2.x (Rust) + React 18 + TypeScript 5.x |
 | 目的 | OBS設定の自動最適化、リアルタイム監視 |
 | 対象 | Windows 10/11 デスクトップアプリ |
+| スコープ | **配信特化**（録画機能は対象外） |
+
+### 対応GPU世代
+
+| ベンダー | 世代 | 主要モデル | AV1 | 備考 |
+|----------|------|------------|-----|------|
+| NVIDIA | Blackwell | RTX 50シリーズ | 対応 | 最新世代 |
+| NVIDIA | Ada | RTX 40シリーズ | 対応 | - |
+| NVIDIA | Ampere | RTX 30シリーズ | - | - |
+| NVIDIA | Turing | RTX 20/GTX 16 | - | - |
+| NVIDIA | Pascal | GTX 10シリーズ | - | Bフレーム非対応 |
+| AMD | VCN 4.0 | RX 7000シリーズ | - | Bフレーム対応 |
+| AMD | VCN 3.0 | RX 6000シリーズ | - | - |
+| Intel | Arc | A770/A750等 | 対応 | - |
+| Intel | QuickSync | 内蔵GPU | - | - |
+
+> **AV1注意**: 現時点でAV1配信対応はYouTubeのみ。Twitch/ニコニコ等はH.264を使用
 
 ## 1. 絶対禁止事項
 
@@ -325,4 +342,40 @@ export const useStore = create<State>((set) => ({
 
 ---
 
-*Version: 5.0.0 | Last Updated: 2024-12-22*
+## 14. エンコーダー設定ガイドライン
+
+### 統合ティア（EffectiveTier）システム
+
+GPU世代とグレード（型番）を組み合わせて最終的な性能ティアを決定:
+
+```
+              | Flagship | HighEnd | UpperMid | Mid  | Entry |
+Blackwell(50) |    S     |    S    |    S     |  A   |   B   |
+Ada (40)      |    S     |    S    |    A     |  A   |   B   |
+Ampere (30)   |    A     |    A    |    B     |  B   |   C   |
+Turing (20)   |    B     |    B    |    C     |  C   |   D   |
+Pascal (10)   |    C     |    C    |    D     |  D   |   E   |
+```
+
+### ティア別設定調整
+
+| ティア | プリセット調整 | マルチパス | 用途例 |
+|--------|---------------|-----------|--------|
+| TierS | 調整なし | 有効 | RTX 4090/5090 |
+| TierA | 調整なし | 有効 | RTX 3090, 4060 |
+| TierB | -1段階 | 有効 | RTX 3070, 4050 |
+| TierC | -1段階 | 無効 | RTX 3050, 2070 |
+| TierD | -2段階 | 無効 | GTX 1660 |
+| TierE | -3段階 | 無効 | GTX 1050 |
+
+### AV1エンコーダー使用条件
+
+1. プラットフォーム: **YouTubeのみ**
+2. GPU: Ada/Blackwell（NVIDIA）またはIntel Arc
+3. エンコーダーID: `jim_av1_nvenc`（NVIDIA）、`obs_qsv11_av1`（Intel）
+
+> **重要**: Twitch/ニコニコ/ツイキャスではH.264を使用すること
+
+---
+
+*Version: 5.1.0 | Last Updated: 2024-12-27*
