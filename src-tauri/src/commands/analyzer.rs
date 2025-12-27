@@ -352,6 +352,53 @@ fn calculate_overall_score(problems: &[ProblemReport]) -> f64 {
     score.clamp(0.0, 100.0)
 }
 
+/// エンコーダーIDからユーザー向け表示ラベルを取得
+///
+/// AV1、HEVC、H.264など各コーデックを区別して表示
+fn get_encoder_display_label(encoder_id: &str) -> String {
+    // AV1エンコーダー（NVIDIA, AMD, Intel）
+    if encoder_id.contains("av1") {
+        if encoder_id.contains("nvenc") || encoder_id.contains("jim_av1") {
+            return "NVIDIA NVENC (AV1)".to_string();
+        } else if encoder_id.contains("amf") || encoder_id.contains("amd") {
+            return "AMD AMF (AV1)".to_string();
+        } else if encoder_id.contains("qsv") {
+            return "Intel QSV (AV1)".to_string();
+        }
+        return "AV1".to_string();
+    }
+
+    // HEVCエンコーダー
+    if encoder_id.contains("hevc") || encoder_id.contains("h265") {
+        if encoder_id.contains("nvenc") {
+            return "NVIDIA NVENC (HEVC)".to_string();
+        } else if encoder_id.contains("amf") || encoder_id.contains("amd") {
+            return "AMD AMF (HEVC)".to_string();
+        } else if encoder_id.contains("qsv") {
+            return "Intel QSV (HEVC)".to_string();
+        }
+        return "HEVC".to_string();
+    }
+
+    // H.264エンコーダー（NVENC）
+    if encoder_id.contains("nvenc") {
+        return "NVIDIA NVENC (H.264)".to_string();
+    }
+
+    // AMD H.264
+    if encoder_id.contains("amd") || encoder_id.contains("amf") {
+        return "AMD AMF (H.264)".to_string();
+    }
+
+    // Intel QuickSync H.264
+    if encoder_id.contains("qsv") {
+        return "Intel QSV (H.264)".to_string();
+    }
+
+    // CPU (x264)
+    "CPU (x264)".to_string()
+}
+
 /// 初心者向け分析サマリーを生成
 ///
 /// # Arguments
@@ -439,21 +486,15 @@ fn generate_analysis_summary(
     });
 
     // エンコーダー
-    let encoder_label = if recommendations.output.encoder.contains("nvenc") {
-        "NVIDIA NVENC"
-    } else if recommendations.output.encoder.contains("amd") || recommendations.output.encoder.contains("amf") {
-        "AMD VCE"
-    } else if recommendations.output.encoder.contains("qsv") {
-        "Intel QuickSync"
-    } else {
-        "CPU (x264)"
-    };
+    let encoder_label = get_encoder_display_label(&recommendations.output.encoder);
 
     key_recommendations.push(KeyRecommendation {
         label: "エンコーダー".to_string(),
-        value: encoder_label.to_string(),
+        value: encoder_label.clone(),
         reason_simple: if encoder_label.contains("CPU") {
             "CPU負荷が高めです。GPU搭載PCの場合はハードウェアエンコーダー推奨".to_string()
+        } else if encoder_label.contains("AV1") {
+            "最新コーデックで高画質・低ビットレート".to_string()
         } else {
             "GPU使用でCPU負荷を軽減".to_string()
         },
@@ -508,5 +549,44 @@ mod tests {
 
         let score = calculate_overall_score(&problems);
         assert_eq!(score, 70.0); // 100 - 20 - 10
+    }
+
+    #[test]
+    fn test_get_encoder_label_av1_nvenc() {
+        // AV1 NVENC (jim_av1_nvenc) はAV1として表示される
+        let label = get_encoder_display_label("jim_av1_nvenc");
+        assert!(label.contains("AV1"), "AV1 encoder should be labeled with AV1, got: {}", label);
+    }
+
+    #[test]
+    fn test_get_encoder_label_h264_nvenc() {
+        // H.264 NVENC (ffmpeg_nvenc) は従来通りNVIDIA NVENCと表示
+        let label = get_encoder_display_label("ffmpeg_nvenc");
+        assert_eq!(label, "NVIDIA NVENC (H.264)");
+    }
+
+    #[test]
+    fn test_get_encoder_label_hevc_nvenc() {
+        // HEVC NVENC
+        let label = get_encoder_display_label("jim_hevc_nvenc");
+        assert!(label.contains("HEVC") || label.contains("H.265"), "HEVC encoder label: {}", label);
+    }
+
+    #[test]
+    fn test_get_encoder_label_amd() {
+        let label = get_encoder_display_label("h264_texture_amf");
+        assert!(label.contains("AMD"), "AMD encoder should be labeled with AMD, got: {}", label);
+    }
+
+    #[test]
+    fn test_get_encoder_label_qsv() {
+        let label = get_encoder_display_label("obs_qsv11_av1");
+        assert!(label.contains("Intel") || label.contains("QSV"), "QSV encoder should be labeled with Intel/QSV, got: {}", label);
+    }
+
+    #[test]
+    fn test_get_encoder_label_x264() {
+        let label = get_encoder_display_label("obs_x264");
+        assert!(label.contains("CPU") || label.contains("x264"), "x264 encoder should be labeled with CPU, got: {}", label);
     }
 }
