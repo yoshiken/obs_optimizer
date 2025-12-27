@@ -66,8 +66,8 @@ pub async fn apply_recommended_settings() -> Result<(), AppError> {
     let current_settings = get_obs_settings().await?;
     let hardware = get_hardware_info().await;
 
-    // 推奨設定を計算（将来のOBS設定適用で使用予定）
-    let _recommendations = RecommendationEngine::calculate_recommendations(
+    // 推奨設定を計算
+    let recommendations = RecommendationEngine::calculate_recommendations(
         &hardware,
         &current_settings,
         config.streaming_mode.platform,
@@ -75,9 +75,12 @@ pub async fn apply_recommended_settings() -> Result<(), AppError> {
         config.streaming_mode.network_speed_mbps,
     );
 
-    // TODO: Phase 2bでOBS設定適用APIを実装予定
-    // 現時点では推奨設定の計算のみ実装
-    // 将来的にobwsを使用して設定を適用
+    // 推奨設定をOBSに適用
+    crate::obs::settings::apply_video_settings(
+        recommendations.video.output_width,
+        recommendations.video.output_height,
+        recommendations.video.fps,
+    ).await?;
 
     Ok(())
 }
@@ -110,8 +113,8 @@ pub async fn apply_custom_settings(
     let current_settings = get_obs_settings().await?;
     let hardware = get_hardware_info().await;
 
-    // 推奨設定を計算（将来のOBS設定適用で使用予定）
-    let _recommendations = RecommendationEngine::calculate_recommendations(
+    // 推奨設定を計算
+    let recommendations = RecommendationEngine::calculate_recommendations(
         &hardware,
         &current_settings,
         platform,
@@ -119,7 +122,12 @@ pub async fn apply_custom_settings(
         network_speed_mbps,
     );
 
-    // TODO: Phase 2bでOBS設定適用APIを実装予定
+    // 推奨設定をOBSに適用
+    crate::obs::settings::apply_video_settings(
+        recommendations.video.output_width,
+        recommendations.video.output_height,
+        recommendations.video.fps,
+    ).await?;
 
     Ok(())
 }

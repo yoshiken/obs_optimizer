@@ -54,10 +54,10 @@ impl CpuTier {
     /// ティアのスコアを取得（統合評価用）
     pub fn score(&self) -> u8 {
         match self {
-            Self::HighEnd => 5,
-            Self::UpperMiddle => 4,
-            Self::Middle => 3,
-            Self::Entry => 2,
+            Self::HighEnd => 6,      // GPU TierSと揃える
+            Self::UpperMiddle => 5,
+            Self::Middle => 4,
+            Self::Entry => 3,
         }
     }
 
@@ -100,10 +100,10 @@ impl MemoryTier {
     /// ティアのスコアを取得（統合評価用）
     pub fn score(&self) -> u8 {
         match self {
-            Self::Abundant => 5,
-            Self::Adequate => 4,
-            Self::Standard => 3,
-            Self::Entry => 2,
+            Self::Abundant => 6,    // GPU TierSと揃える
+            Self::Adequate => 5,
+            Self::Standard => 4,
+            Self::Entry => 3,
         }
     }
 

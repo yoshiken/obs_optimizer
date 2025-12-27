@@ -153,6 +153,23 @@ pub enum EncoderType {
     Other,
 }
 
+/// 配信出力のエンコーダー設定を取得するための構造体
+#[derive(Debug, Clone, Deserialize)]
+struct StreamEncoderSettings {
+    /// ビットレート (kbps)
+    #[serde(default)]
+    bitrate: Option<u32>,
+    /// レート制御方式
+    #[serde(default)]
+    rate_control: Option<String>,
+    /// プリセット
+    #[serde(default)]
+    preset: Option<String>,
+    /// キーフレーム間隔
+    #[serde(default, alias = "keyint_sec")]
+    keyframe_interval: Option<u32>,
+}
+
 /// OBSの現在の設定を取得
 ///
 /// # Returns
@@ -164,13 +181,10 @@ pub async fn get_obs_settings() -> Result<ObsSettings, AppError> {
         return Err(AppError::obs_state("OBSに接続されていません"));
     }
 
-    // OBS WebSocketクライアントから設定を取得
-    // 注: obws 0.14では直接設定取得APIが制限されているため、
-    // GetVideoSettings、GetStreamServiceSettings等の個別APIを組み合わせる
-
-    let video_settings = get_video_settings()?;
-    let audio_settings = get_audio_settings()?;
-    let output_settings = get_output_settings()?;
+    // obws APIを使用して実際のOBS設定を取得
+    let video_settings = get_video_settings_from_obs(&client).await?;
+    let audio_settings = get_audio_settings_from_obs()?;
+    let output_settings = get_output_settings_from_obs(&client).await?;
 
     Ok(ObsSettings {
         video: video_settings,
@@ -179,46 +193,161 @@ pub async fn get_obs_settings() -> Result<ObsSettings, AppError> {
     })
 }
 
-/// ビデオ設定を取得（内部関数）
-fn get_video_settings() -> Result<VideoSettings, AppError> {
-    // OBS WebSocket API (obws) ではビデオ設定を直接取得するAPIが限られているため、
-    // 一般的なデフォルト値を返す。
-    // 将来的にはOBS設定ファイルから読み取るか、
-    // Profile/Scene情報から推定することを検討。
+/// ビデオ設定をOBSから取得
+async fn get_video_settings_from_obs(client: &super::ObsClient) -> Result<VideoSettings, AppError> {
+    // obws の config().video_settings() を使用
+    let video = client.with_client(|c| async {
+        c.config().video_settings().await
+    }).await?;
+
     Ok(VideoSettings {
-        base_width: 1920,
-        base_height: 1080,
-        output_width: 1920,
-        output_height: 1080,
-        fps_numerator: 60,
-        fps_denominator: 1,
+        base_width: video.base_width,
+        base_height: video.base_height,
+        output_width: video.output_width,
+        output_height: video.output_height,
+        fps_numerator: video.fps_numerator,
+        fps_denominator: video.fps_denominator,
     })
 }
 
-/// 音声設定を取得（内部関数）
-fn get_audio_settings() -> Result<AudioSettings, AppError> {
-    // OBS WebSocket GetAudioSettings相当の処理
-    // 現時点ではデフォルト値を返す（obws 0.14での制限回避）
-    // 将来的にAPIが拡張されたら実装を更新
+/// 音声設定を取得（OBS WebSocket APIでは直接取得が制限されている）
+fn get_audio_settings_from_obs() -> Result<AudioSettings, AppError> {
+    // OBS WebSocket 5.x では音声設定の直接取得APIがないため、
+    // 一般的なデフォルト値を返す（Windowsのデフォルトは48kHz）
+    // TODO: OBS設定ファイルから読み取ることを検討
     Ok(AudioSettings {
-        sample_rate: 48000, // 一般的なデフォルト値
-        channels: 2,        // ステレオ
+        sample_rate: 48000,
+        channels: 2,
     })
 }
 
-/// 出力設定を取得（内部関数）
-fn get_output_settings() -> Result<OutputSettings, AppError> {
-    // エンコーダー情報はOBS WebSocket APIでは直接取得が限られているため、
-    // デフォルト値を設定。
-    // 将来的にはOBS設定ファイルから読み取るか、
-    // より詳細なWebSocket APIを使用することを検討。
+/// 出力設定をOBSから取得
+async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<OutputSettings, AppError> {
+    // ストリーム出力一覧から設定を取得
+    let outputs = client.with_client(|c| async {
+        c.outputs().list().await
+    }).await?;
+
+    // "simple_stream_output" または配信用出力を探す
+    let stream_output = outputs.iter()
+        .find(|o| o.name.contains("stream") || o.name.contains("streaming"))
+        .or_else(|| outputs.first());
+
+    // エンコーダー設定を取得
+    if let Some(output) = stream_output {
+        // 出力の設定を取得
+        let settings_result: Result<StreamEncoderSettings, _> = client.with_client(|c| async {
+            c.outputs().settings(&output.name).await
+        }).await;
+
+        if let Ok(settings) = settings_result {
+            return Ok(OutputSettings {
+                encoder: output.name.clone(),
+                bitrate_kbps: settings.bitrate.unwrap_or(6000),
+                keyframe_interval_secs: settings.keyframe_interval.unwrap_or(2),
+                preset: settings.preset,
+                rate_control: settings.rate_control,
+            });
+        }
+    }
+
+    // 取得できなかった場合はデフォルト値
     Ok(OutputSettings {
-        encoder: "obs_x264".to_string(), // 一般的なデフォルト
-        bitrate_kbps: 6000,              // 推奨値
+        encoder: "unknown".to_string(),
+        bitrate_kbps: 6000,
         keyframe_interval_secs: 2,
-        preset: Some("veryfast".to_string()),
+        preset: None,
         rate_control: Some("CBR".to_string()),
     })
+}
+
+/// 推奨ビデオ設定をOBSに適用
+///
+/// # Arguments
+/// * `output_width` - 出力解像度の幅
+/// * `output_height` - 出力解像度の高さ
+/// * `fps` - フレームレート
+pub async fn apply_video_settings(
+    output_width: u32,
+    output_height: u32,
+    fps: u32,
+) -> Result<(), AppError> {
+    let client = get_obs_client();
+
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    // 現在のビデオ設定を取得してベース解像度を維持
+    let current = client.with_client(|c| async {
+        c.config().video_settings().await
+    }).await?;
+
+    // obws の SetVideoSettings を構築
+    use obws::requests::config::SetVideoSettings;
+    let settings = SetVideoSettings {
+        fps_numerator: Some(fps),
+        fps_denominator: Some(1),
+        base_width: Some(current.base_width), // ベース解像度は維持
+        base_height: Some(current.base_height),
+        output_width: Some(output_width),
+        output_height: Some(output_height),
+    };
+
+    client.with_client(|c| async {
+        c.config().set_video_settings(settings).await
+    }).await?;
+
+    Ok(())
+}
+
+/// 推奨設定をまとめてOBSに適用
+///
+/// # Arguments
+/// * `video` - ビデオ設定（解像度、FPS）
+/// * `encoder_name` - 使用するエンコーダー名（省略時は現在のまま）
+/// * `bitrate_kbps` - ビットレート（省略時は現在のまま）
+#[allow(dead_code)]
+pub async fn apply_recommended_settings_to_obs(
+    video: Option<(u32, u32, u32)>, // (width, height, fps)
+    _encoder_name: Option<&str>,
+    _bitrate_kbps: Option<u32>,
+) -> Result<ApplyResult, AppError> {
+    let client = get_obs_client();
+
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    let mut result = ApplyResult::default();
+
+    // ビデオ設定を適用
+    if let Some((width, height, fps)) = video {
+        match apply_video_settings(width, height, fps).await {
+            Ok(()) => {
+                result.applied.push("video".to_string());
+            }
+            Err(e) => {
+                result.failed.push(format!("video: {}", e));
+            }
+        }
+    }
+
+    // エンコーダー・ビットレートの設定は OBS WebSocket 5.x では
+    // 直接設定するAPIが制限されているため、将来の実装とする
+    // TODO: OBS設定ファイル経由での設定変更を検討
+
+    Ok(result)
+}
+
+/// 設定適用結果
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyResult {
+    /// 適用成功した設定項目
+    pub applied: Vec<String>,
+    /// 適用失敗した設定項目とエラーメッセージ
+    pub failed: Vec<String>,
 }
 
 #[cfg(test)]
