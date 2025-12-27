@@ -17,6 +17,8 @@ pub enum GpuGeneration {
     NvidiaAmpere,
     /// NVIDIA Ada Lovelace世代（RTX 40シリーズ）
     NvidiaAda,
+    /// NVIDIA Blackwell世代（RTX 50シリーズ）
+    NvidiaBlackwell,
     /// AMD RX 6000シリーズ（VCN 3.0）
     AmdVcn3,
     /// AMD RX 7000シリーズ（VCN 4.0）
@@ -123,11 +125,11 @@ struct GpuDetectionPattern {
 
 /// GPU判定パターン定義テーブル
 const GPU_PATTERNS: &[GpuDetectionPattern] = &[
-    // NVIDIA Blackwell (RTX 50シリーズ) - Ada以上の能力を持つためAdaとして扱う
+    // NVIDIA Blackwell (RTX 50シリーズ)
     GpuDetectionPattern {
-        keywords: &["rtx 50", "rtx50", "5090", "5080", "5070", "5060"],
+        keywords: &["rtx 50", "rtx50", "5090", "5080", "5070", "5060", "5050"],
         exclude_keywords: &[],
-        generation: GpuGeneration::NvidiaAda, // Blackwellは Ada 以上の能力
+        generation: GpuGeneration::NvidiaBlackwell,
     },
     // NVIDIA Ada Lovelace (RTX 40シリーズ)
     GpuDetectionPattern {
@@ -193,6 +195,15 @@ const GPU_PATTERNS: &[GpuDetectionPattern] = &[
 ///
 /// 変更しやすさのため、能力情報をテーブルで管理
 const GPU_CAPABILITIES: &[GpuEncoderCapability] = &[
+    GpuEncoderCapability {
+        generation: GpuGeneration::NvidiaBlackwell,
+        h264: true,
+        hevc: true,
+        av1: true,
+        b_frames: true,
+        quality_equivalent: "slow", // Adaと同等以上
+        recommended_preset: "p7",
+    },
     GpuEncoderCapability {
         generation: GpuGeneration::NvidiaAda,
         h264: true,
@@ -447,7 +458,8 @@ pub fn detect_gpu_tier(gpu_name: &str) -> GpuTier {
 /// # 統合ティアマトリクス
 /// ```text
 ///              | Flagship | HighEnd | UpperMid | Mid  | Entry |
-/// Ada (40/50)  |    S     |    S    |    A     |  A   |   B   |
+/// Blackwell(50)|    S     |    S    |    S     |  A   |   B   |
+/// Ada (40)     |    S     |    S    |    A     |  A   |   B   |
 /// Ampere (30)  |    A     |    A    |    B     |  B   |   C   |
 /// Turing (20)  |    B     |    B    |    C     |  C   |   D   |
 /// Pascal (10)  |    C     |    C    |    D     |  D   |   E   |
@@ -459,7 +471,12 @@ pub fn detect_gpu_tier(gpu_name: &str) -> GpuTier {
 pub fn calculate_effective_tier(generation: GpuGeneration, grade: GpuGrade) -> EffectiveTier {
     // マトリクス通りの直接マッピング
     match (generation, grade) {
-        // === NVIDIA Ada (RTX 40/50シリーズ) ===
+        // === NVIDIA Blackwell (RTX 50シリーズ) ===
+        (GpuGeneration::NvidiaBlackwell, GpuGrade::Flagship | GpuGrade::HighEnd | GpuGrade::UpperMid) => EffectiveTier::TierS,
+        (GpuGeneration::NvidiaBlackwell, GpuGrade::Mid) => EffectiveTier::TierA,
+        (GpuGeneration::NvidiaBlackwell, GpuGrade::Entry) => EffectiveTier::TierB,
+
+        // === NVIDIA Ada (RTX 40シリーズ) ===
         (GpuGeneration::NvidiaAda, GpuGrade::Flagship | GpuGrade::HighEnd) => EffectiveTier::TierS,
         (GpuGeneration::NvidiaAda, GpuGrade::UpperMid | GpuGrade::Mid) => EffectiveTier::TierA,
         (GpuGeneration::NvidiaAda, GpuGrade::Entry) => EffectiveTier::TierB,
@@ -559,18 +576,61 @@ mod tests {
 
     #[test]
     fn test_detect_nvidia_blackwell() {
-        // RTX 50シリーズ（Blackwell）はAda相当として扱う
+        // RTX 50シリーズ（Blackwell）
         assert_eq!(
             detect_gpu_generation("NVIDIA GeForce RTX 5090"),
-            GpuGeneration::NvidiaAda
+            GpuGeneration::NvidiaBlackwell
         );
         assert_eq!(
             detect_gpu_generation("RTX 5080"),
-            GpuGeneration::NvidiaAda
+            GpuGeneration::NvidiaBlackwell
         );
         assert_eq!(
             detect_gpu_generation("GeForce RTX 5070 Ti"),
-            GpuGeneration::NvidiaAda
+            GpuGeneration::NvidiaBlackwell
+        );
+        assert_eq!(
+            detect_gpu_generation("NVIDIA GeForce RTX 5060"),
+            GpuGeneration::NvidiaBlackwell
+        );
+    }
+
+    #[test]
+    fn test_blackwell_encoder_capability() {
+        // Blackwell世代はAV1対応
+        let cap = get_encoder_capability(GpuGeneration::NvidiaBlackwell);
+        assert!(cap.is_some());
+        let cap = cap.unwrap();
+        assert!(cap.h264);
+        assert!(cap.hevc);
+        assert!(cap.av1, "Blackwell must support AV1");
+        assert!(cap.b_frames);
+        assert_eq!(cap.quality_equivalent, "slow");
+        assert_eq!(cap.recommended_preset, "p7");
+    }
+
+    #[test]
+    fn test_effective_tier_nvidia_blackwell() {
+        // Blackwell（RTX 50）の統合ティア
+        assert_eq!(
+            calculate_effective_tier(GpuGeneration::NvidiaBlackwell, GpuGrade::Flagship),
+            EffectiveTier::TierS
+        );
+        assert_eq!(
+            calculate_effective_tier(GpuGeneration::NvidiaBlackwell, GpuGrade::HighEnd),
+            EffectiveTier::TierS
+        );
+        assert_eq!(
+            calculate_effective_tier(GpuGeneration::NvidiaBlackwell, GpuGrade::UpperMid),
+            EffectiveTier::TierS
+        );
+        assert_eq!(
+            calculate_effective_tier(GpuGeneration::NvidiaBlackwell, GpuGrade::Mid),
+            EffectiveTier::TierA
+        );
+        assert_eq!(
+            calculate_effective_tier(GpuGeneration::NvidiaBlackwell, GpuGrade::Entry),
+            EffectiveTier::TierB
         );
     }
 
@@ -719,6 +779,7 @@ mod tests {
             GpuGeneration::NvidiaTuring,
             GpuGeneration::NvidiaAmpere,
             GpuGeneration::NvidiaAda,
+            GpuGeneration::NvidiaBlackwell,
             GpuGeneration::AmdVcn3,
             GpuGeneration::AmdVcn4,
             GpuGeneration::IntelArc,

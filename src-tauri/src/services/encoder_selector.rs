@@ -87,7 +87,8 @@ impl EncoderSelector {
 
         // GPU世代に基づく判定
         match context.gpu_generation {
-            GpuGeneration::NvidiaAda
+            GpuGeneration::NvidiaBlackwell
+            | GpuGeneration::NvidiaAda
             | GpuGeneration::NvidiaAmpere
             | GpuGeneration::NvidiaTuring => {
                 // YouTube かつ AV1対応GPUの場合はAV1を優先検討
@@ -136,14 +137,14 @@ impl EncoderSelector {
     /// AV1 エンコーダーを選択
     fn select_av1_encoder(context: &EncoderSelectionContext) -> RecommendedEncoder {
         let encoder_id = match context.gpu_generation {
-            GpuGeneration::NvidiaAda => "jim_av1_nvenc", // NVIDIA AV1
+            GpuGeneration::NvidiaBlackwell | GpuGeneration::NvidiaAda => "jim_av1_nvenc", // NVIDIA AV1
             GpuGeneration::IntelArc => "obs_qsv11_av1",  // Intel Arc AV1
             _ => "ffmpeg_nvenc", // フォールバック: H.264
         };
 
         let is_av1 = matches!(
             context.gpu_generation,
-            GpuGeneration::NvidiaAda | GpuGeneration::IntelArc
+            GpuGeneration::NvidiaBlackwell | GpuGeneration::NvidiaAda | GpuGeneration::IntelArc
         );
 
         if is_av1 {
@@ -197,11 +198,12 @@ impl EncoderSelector {
             GpuGeneration::NvidiaTuring
                 | GpuGeneration::NvidiaAmpere
                 | GpuGeneration::NvidiaAda
+                | GpuGeneration::NvidiaBlackwell
         );
 
         let look_ahead = matches!(
             context.gpu_generation,
-            GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaAda
+            GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaAda | GpuGeneration::NvidiaBlackwell
         );
 
         // マルチパスモード: 統合ティアに応じて調整
@@ -215,7 +217,7 @@ impl EncoderSelector {
 
         // チューニング: 高品質設定を推奨
         let tuning = match context.gpu_generation {
-            GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaTuring => {
+            GpuGeneration::NvidiaBlackwell | GpuGeneration::NvidiaAda | GpuGeneration::NvidiaAmpere | GpuGeneration::NvidiaTuring => {
                 Some("hq".to_string())
             }
             _ => None,
@@ -414,6 +416,7 @@ impl EncoderSelector {
     /// GPU世代の表示名を取得
     fn gpu_display_name(generation: GpuGeneration) -> &'static str {
         match generation {
+            GpuGeneration::NvidiaBlackwell => "NVIDIA RTX 50シリーズ",
             GpuGeneration::NvidiaAda => "NVIDIA RTX 40シリーズ",
             GpuGeneration::NvidiaAmpere => "NVIDIA RTX 30シリーズ",
             GpuGeneration::NvidiaTuring => "NVIDIA RTX 20/GTX 16シリーズ",
@@ -472,6 +475,31 @@ mod tests {
         assert!(encoder.psycho_visual_tuning);
         assert!(encoder.look_ahead);
         assert_eq!(encoder.b_frames, Some(2));
+    }
+
+    #[test]
+    fn test_select_av1_blackwell_youtube() {
+        // Blackwell + YouTube = AV1エンコーダが選択される
+        let context = create_test_context(GpuGeneration::NvidiaBlackwell, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "jim_av1_nvenc", "Blackwell + YouTube must select AV1");
+        assert_eq!(encoder.preset, "p7");
+        assert!(encoder.psycho_visual_tuning);
+        assert!(encoder.look_ahead);
+        assert_eq!(encoder.b_frames, Some(2));
+        assert!(encoder.reason.contains("AV1"), "Reason should mention AV1");
+    }
+
+    #[test]
+    fn test_select_nvenc_blackwell_twitch() {
+        // Blackwell + Twitch = H.264（TwitchはAV1非対応）
+        let mut context = create_test_context(GpuGeneration::NvidiaBlackwell, CpuTier::Middle);
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc", "Blackwell + Twitch should use H.264");
+        assert!(encoder.reason.contains("RTX 50"), "Reason should mention RTX 50");
     }
 
     #[test]
@@ -645,7 +673,9 @@ mod tests {
     fn test_platform_constraints() {
         // プラットフォームごとのエンコーダー制約テスト
         let test_cases = vec![
+            (StreamingPlatform::YouTube, GpuGeneration::NvidiaBlackwell, "jim_av1_nvenc"),
             (StreamingPlatform::YouTube, GpuGeneration::NvidiaAda, "jim_av1_nvenc"),
+            (StreamingPlatform::Twitch, GpuGeneration::NvidiaBlackwell, "ffmpeg_nvenc"),
             (StreamingPlatform::Twitch, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
             (StreamingPlatform::NicoNico, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
             (StreamingPlatform::TwitCasting, GpuGeneration::NvidiaAda, "ffmpeg_nvenc"),
