@@ -325,3 +325,71 @@ pub async fn get_saved_connection() -> Result<SavedConnectionInfo, AppError> {
         auto_connect_on_startup: config.connection.auto_connect_on_startup,
     })
 }
+
+/// OBSプロファイルパラメータを取得（テスト用）
+///
+/// # Arguments
+/// * `category` - カテゴリ（例: "SimpleOutput", "AdvOut"）
+/// * `name` - パラメータ名（例: "VBitrate", "StreamEncoder"）
+#[tauri::command]
+pub async fn get_obs_profile_parameter(
+    category: String,
+    name: String,
+) -> Result<Option<String>, AppError> {
+    use crate::obs::get_obs_client;
+
+    let client = get_obs_client();
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    client.get_profile_parameter(&category, &name).await
+}
+
+/// OBSプロファイルパラメータを設定（テスト用）
+///
+/// # Arguments
+/// * `category` - カテゴリ（例: "SimpleOutput", "AdvOut"）
+/// * `name` - パラメータ名（例: "VBitrate", "StreamEncoder"）
+/// * `value` - 設定値
+#[tauri::command]
+pub async fn set_obs_profile_parameter(
+    category: String,
+    name: String,
+    value: String,
+) -> Result<(), AppError> {
+    use crate::obs::get_obs_client;
+
+    let client = get_obs_client();
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    client.set_profile_parameter(&category, &name, Some(&value)).await
+}
+
+/// 現在のOBSプロファイル名を取得
+#[tauri::command]
+pub async fn get_current_obs_profile() -> Result<String, AppError> {
+    use crate::obs::get_obs_client;
+
+    let client = get_obs_client();
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    client.get_current_profile().await
+}
+
+/// OBSプロファイル一覧を取得
+#[tauri::command]
+pub async fn get_obs_profile_list() -> Result<Vec<String>, AppError> {
+    use crate::obs::get_obs_client;
+
+    let client = get_obs_client();
+    if !client.is_connected().await {
+        return Err(AppError::obs_state("OBSに接続されていません"));
+    }
+
+    client.get_profile_list().await
+}

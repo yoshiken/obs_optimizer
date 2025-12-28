@@ -403,6 +403,80 @@ impl ObsClient {
         Ok(settings)
     }
 
+    /// プロファイル一覧を取得
+    pub async fn get_profile_list(&self) -> ObsResult<Vec<String>> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let profiles = client.profiles().list().await?;
+        Ok(profiles.profiles)
+    }
+
+    /// 現在のプロファイル名を取得
+    pub async fn get_current_profile(&self) -> ObsResult<String> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let current = client.profiles().current().await?;
+        Ok(current)
+    }
+
+    /// プロファイルを切り替え
+    pub async fn set_current_profile(&self, profile_name: &str) -> ObsResult<()> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        client.profiles().set_current(profile_name).await?;
+        Ok(())
+    }
+
+    /// プロファイルパラメータを取得
+    pub async fn get_profile_parameter(
+        &self,
+        category: &str,
+        name: &str,
+    ) -> ObsResult<Option<String>> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        let param = client.profiles().parameter(category, name).await?;
+        Ok(param.value)
+    }
+
+    /// プロファイルパラメータを設定
+    pub async fn set_profile_parameter(
+        &self,
+        category: &str,
+        name: &str,
+        value: Option<&str>,
+    ) -> ObsResult<()> {
+        let inner = self.inner.read().await;
+
+        let client = inner.client.as_ref().ok_or_else(|| {
+            AppError::obs_state("OBSに接続されていません")
+        })?;
+
+        use obws::requests::profiles::SetParameter;
+        client.profiles().set_parameter(SetParameter {
+            category,
+            name,
+            value,
+        }).await?;
+        Ok(())
+    }
+
     /// 再接続を試行（シングルショット）（将来使用予定）
     ///
     /// 保存された設定を使用して単一の再接続試行を行う

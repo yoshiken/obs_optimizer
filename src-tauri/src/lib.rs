@@ -79,6 +79,11 @@ pub fn run() {
             commands::stop_streaming,
             commands::start_recording,
             commands::stop_recording,
+            // OBSプロファイルパラメータ操作（テスト用）
+            commands::get_obs_profile_parameter,
+            commands::set_obs_profile_parameter,
+            commands::get_current_obs_profile,
+            commands::get_obs_profile_list,
             // 設定管理コマンド
             commands::get_config,
             commands::save_app_config,
