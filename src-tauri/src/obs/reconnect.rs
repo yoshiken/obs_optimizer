@@ -188,12 +188,11 @@ async fn reconnect_task(
             }
             Err(e) => {
                 // 接続失敗、ログ出力（将来的にはイベント通知）
-                // NOTE: 現在はlogクレートが未導入のためeprintlnを使用
-                // TODO: log/tracing クレート導入後は warn!() マクロに置き換える
-                eprintln!(
-                    "Reconnect attempt {} failed: {}",
-                    attempt.saturating_add(1),
-                    e.message()
+                tracing::warn!(
+                    target: "obs_reconnect",
+                    attempt = attempt.saturating_add(1),
+                    error = %e.message(),
+                    "Reconnect attempt failed"
                 );
                 // オーバーフロー防止: saturating_add を使用
                 attempt = attempt.saturating_add(1);

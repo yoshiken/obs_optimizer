@@ -13,6 +13,8 @@ pub const ERROR_CODE_CONFIG: &str = "CONFIG_ERROR";
 pub const ERROR_CODE_DATABASE: &str = "DATABASE_ERROR";
 pub const ERROR_CODE_EXPORT: &str = "EXPORT_ERROR";
 pub const ERROR_CODE_ANALYZER: &str = "ANALYZER_ERROR";
+#[allow(dead_code)]
+pub const ERROR_CODE_KEYRING: &str = "KEYRING_ERROR";
 
 /// アプリケーション全体で使用するエラー型
 ///
@@ -87,6 +89,12 @@ impl AppError {
     /// 分析関連のエラーを作成
     pub fn analyzer_error(msg: &str) -> Self {
         Self::new(ERROR_CODE_ANALYZER, msg)
+    }
+
+    /// キーリング関連のエラーを作成
+    #[allow(dead_code)]
+    pub fn keyring_error(msg: &str) -> Self {
+        Self::new(ERROR_CODE_KEYRING, msg)
     }
 }
 

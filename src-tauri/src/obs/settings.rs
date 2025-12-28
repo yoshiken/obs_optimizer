@@ -257,7 +257,11 @@ async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<Outpu
         Err(e) => {
             // GetOutputList が失敗した場合（NDIプラグイン等によるクラッシュ回避後）
             // ログを出力してデフォルト値を返す
-            eprintln!("[WARNING] outputs().list() failed (possibly due to plugin conflict): {}", e);
+            tracing::warn!(
+                target: "obs_settings",
+                error = %e,
+                "outputs().list() failed (possibly due to plugin conflict)"
+            );
             Ok(default_output_settings())
         }
     }

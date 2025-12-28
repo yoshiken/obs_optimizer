@@ -59,6 +59,12 @@ pub use storage::{
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // トレーシングサブスクライバーの初期化
+    // RUST_LOG環境変数でログレベルを制御可能（例: RUST_LOG=debug,obs_optimizer=trace）
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -126,7 +132,7 @@ pub fn run() {
         .setup(|app| {
             // システムトレイのセットアップ
             if let Err(e) = tray::setup_tray(app.handle()) {
-                eprintln!("[WARNING] システムトレイの初期化に失敗: {e}");
+                tracing::warn!(target: "tray", "システムトレイの初期化に失敗: {e}");
                 // トレイの初期化失敗は致命的ではないため、アプリケーションは継続
             }
             Ok(())
@@ -134,10 +140,10 @@ pub fn run() {
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
             // エラー詳細をログ出力してから終了
-            eprintln!("[FATAL] Failed to run Tauri application");
-            eprintln!("Error: {e}");
-            eprintln!("Error type: {}", std::any::type_name_of_val(&e));
-            eprintln!("Terminating process with exit code 1");
+            tracing::error!(target: "app", "Failed to run Tauri application");
+            tracing::error!(target: "app", "Error: {e}");
+            tracing::error!(target: "app", "Error type: {}", std::any::type_name_of_val(&e));
+            tracing::error!(target: "app", "Terminating process with exit code 1");
             std::process::exit(1);
         });
 }

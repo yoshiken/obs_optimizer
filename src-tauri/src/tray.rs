@@ -38,7 +38,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
             match event.id.as_ref() {
                 "show" => {
                     if let Err(e) = toggle_window_visibility(app) {
-                        eprintln!("ウィンドウの表示切替に失敗: {e}");
+                        tracing::warn!(target: "tray", "ウィンドウの表示切替に失敗: {e}");
                     }
                 }
                 "quit" => {
@@ -57,7 +57,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
             {
                 let app = tray.app_handle();
                 if let Err(e) = toggle_window_visibility(app) {
-                    eprintln!("ウィンドウの表示切替に失敗: {e}");
+                    tracing::warn!(target: "tray", "ウィンドウの表示切替に失敗: {e}");
                 }
             }
         })

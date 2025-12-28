@@ -3,9 +3,6 @@
 // フロントエンドから呼び出されるOBS操作コマンド
 
 use serde::Deserialize;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use once_cell::sync::Lazy;
 use tauri::AppHandle;
 
 use crate::error::AppError;
@@ -15,68 +12,7 @@ use crate::obs::{
 };
 use crate::services::obs_service;
 use crate::storage::config::{load_config, save_config};
-
-/// レート制限付きログ出力
-///
-/// 同一メッセージの連続出力を抑制し、ログ肥大化を防止する
-mod rate_limited_log {
-    use super::{Instant, Lazy, Mutex, Duration};
-
-    /// レート制限状態
-    struct RateLimitState {
-        last_log_time: Option<Instant>,
-        last_message: String,
-    }
-
-    /// グローバルレート制限状態（Mutexで保護）
-    static RATE_LIMIT_STATE: Lazy<Mutex<RateLimitState>> = Lazy::new(|| {
-        Mutex::new(RateLimitState {
-            last_log_time: None,
-            last_message: String::new(),
-        })
-    });
-
-    /// 最小ログ間隔（5秒）
-    const MIN_LOG_INTERVAL: Duration = Duration::from_secs(5);
-
-    /// レート制限付きでエラーログを出力
-    ///
-    /// `同一メッセージの場合、MIN_LOG_INTERVAL以内の再出力を抑制`
-    pub fn log_error(message: &str) {
-        // Mutex poisoned時でもログは出力する（デバッグ情報の消失を防ぐ）
-        let mut state = match RATE_LIMIT_STATE.lock() {
-            Ok(s) => s,
-            Err(poisoned) => {
-                // Mutexがpoisonedでも、ログは出力してからリカバリ
-                eprintln!("[WARN] Rate limiter mutex poisoned, logging anyway: {message}");
-                poisoned.into_inner()
-            }
-        };
-
-        let now = Instant::now();
-
-        // 前回ログと同一メッセージかチェック
-        let is_same_message = state.last_message == message;
-
-        // ログ出力判定
-        let should_log = match state.last_log_time {
-            Some(last) if is_same_message => {
-                // 同一メッセージ: 5秒以上経過していれば出力
-                now.duration_since(last) >= MIN_LOG_INTERVAL
-            }
-            _ => {
-                // 初回 or 異なるメッセージ: 即座に出力
-                true
-            }
-        };
-
-        if should_log {
-            eprintln!("{message}");
-            state.last_log_time = Some(now);
-            state.last_message = message.to_string();
-        }
-    }
-}
+use crate::storage::credentials::{save_obs_password, get_obs_password, delete_obs_password};
 
 /// OBS接続パラメータ (フロントエンドからの入力)
 #[derive(Debug, Deserialize)]
@@ -132,16 +68,30 @@ pub async fn connect_obs(
         app_config.connection.last_port = config.port;
         app_config.connection.save_password = save_password;
 
-        // パスワード保存が有効な場合のみパスワードを保存
+        // パスワードをキーリングに保存/削除
         if save_password {
-            app_config.connection.saved_password = password_to_save;
+            if let Some(ref password) = password_to_save {
+                if let Err(e) = save_obs_password(password) {
+                    tracing::warn!(
+                        target: "obs_client",
+                        error = %e,
+                        "キーリングへのパスワード保存に失敗"
+                    );
+                }
+            }
         } else {
             // 無効になった場合は既存のパスワードも削除
-            app_config.connection.saved_password = None;
+            if let Err(e) = delete_obs_password() {
+                tracing::warn!(
+                    target: "obs_client",
+                    error = %e,
+                    "キーリングからのパスワード削除に失敗"
+                );
+            }
         }
 
         if let Err(e) = save_config(&app_config) {
-            rate_limited_log::log_error(&format!("Failed to save connection config: {e}"));
+            tracing::warn!(target: "obs_client", error = %e, "Failed to save connection config");
         }
     }
 
@@ -153,7 +103,7 @@ pub async fn connect_obs(
         host: Some(config.host),
         port: Some(config.port),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit connection_changed event");
     }
 
     Ok(())
@@ -184,7 +134,7 @@ pub async fn disconnect_obs(app_handle: AppHandle) -> Result<(), AppError> {
         host: None,
         port: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit connection_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit connection_changed event");
     }
 
     Ok(())
@@ -236,7 +186,7 @@ pub async fn start_streaming(app_handle: AppHandle) -> Result<(), AppError> {
         is_streaming: true,
         started_at: Some(crate::obs::events::current_timestamp()),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit streaming_changed event");
     }
 
     Ok(())
@@ -254,7 +204,7 @@ pub async fn stop_streaming(app_handle: AppHandle) -> Result<(), AppError> {
         is_streaming: false,
         started_at: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit streaming_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit streaming_changed event");
     }
 
     Ok(())
@@ -272,7 +222,7 @@ pub async fn start_recording(app_handle: AppHandle) -> Result<(), AppError> {
         is_recording: true,
         started_at: Some(crate::obs::events::current_timestamp()),
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit recording_changed event");
     }
 
     Ok(())
@@ -293,7 +243,7 @@ pub async fn stop_recording(app_handle: AppHandle) -> Result<String, AppError> {
         is_recording: false,
         started_at: None,
     }) {
-        rate_limited_log::log_error(&format!("Failed to emit recording_changed event: {e}"));
+        tracing::warn!(target: "obs_client", error = %e, "Failed to emit recording_changed event");
     }
 
     Ok(path)
@@ -317,11 +267,28 @@ pub struct SavedConnectionInfo {
 pub async fn get_saved_connection() -> Result<SavedConnectionInfo, AppError> {
     let config = load_config()?;
 
+    // パスワードをキーリングから取得
+    let saved_password = if config.connection.save_password {
+        match get_obs_password() {
+            Ok(password) => password,
+            Err(e) => {
+                tracing::warn!(
+                    target: "obs_client",
+                    error = %e,
+                    "キーリングからのパスワード取得に失敗"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     Ok(SavedConnectionInfo {
         host: config.connection.last_host,
         port: config.connection.last_port,
         save_password: config.connection.save_password,
-        saved_password: config.connection.saved_password,
+        saved_password,
         auto_connect_on_startup: config.connection.auto_connect_on_startup,
     })
 }

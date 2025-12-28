@@ -2,15 +2,15 @@
 //
 // 推奨設定をOBSに一括適用する機能
 
+use crate::commands::utils::get_hardware_info;
 use crate::error::AppError;
 use crate::obs::{get_obs_client, get_obs_settings};
 use crate::services::{get_streaming_mode_service, RecommendationEngine};
 use crate::storage::config::{load_config, StreamingPlatform, StreamingStyle};
 use crate::storage::{
-    SettingsProfile, ProfileSettings, save_profile as storage_save_profile,
-    get_profile, get_profiles,
+    get_profile, get_profiles, save_profile as storage_save_profile, ProfileSettings,
+    SettingsProfile,
 };
-use crate::commands::utils::get_hardware_info;
 use serde::{Deserialize, Serialize};
 
 /// 設定バックアップ情報（TypeScriptのBackupInfoに対応）
@@ -41,95 +41,97 @@ pub struct OptimizationResult {
 
 /// 推奨設定を一括適用
 ///
-/// 配信中は適用不可
+/// 配信中は適用不可。TOCTOU競合条件を防ぐためロックを使用。
 #[tauri::command]
 pub async fn apply_recommended_settings() -> Result<(), AppError> {
-    // 配信中の場合は適用を拒否
     let streaming_service = get_streaming_mode_service();
-    if streaming_service.is_streaming_mode().await {
-        return Err(AppError::obs_state(
-            "配信中のため設定を変更できません。配信を停止してから再度お試しください。"
-        ));
-    }
 
-    // OBS接続確認
-    let client = get_obs_client();
-    if !client.is_connected().await {
-        return Err(AppError::obs_state("OBSに接続されていません"));
-    }
+    // TOCTOU対策: ロックを取得し、配信中でないことを確認してから操作を実行
+    streaming_service
+        .execute_if_not_streaming(|| async {
+            // OBS接続確認
+            let client = get_obs_client();
+            if !client.is_connected().await {
+                return Err(AppError::obs_state("OBSに接続されていません"));
+            }
 
-    // 現在の設定をバックアップ
-    backup_current_settings().await?;
+            // 現在の設定をバックアップ
+            backup_current_settings_internal().await?;
 
-    // 推奨設定を計算
-    let config = load_config()?;
-    let current_settings = get_obs_settings().await?;
-    let hardware = get_hardware_info().await;
+            // 推奨設定を計算
+            let config = load_config()?;
+            let current_settings = get_obs_settings().await?;
+            let hardware = get_hardware_info().await;
 
-    // 推奨設定を計算
-    let recommendations = RecommendationEngine::calculate_recommendations(
-        &hardware,
-        &current_settings,
-        config.streaming_mode.platform,
-        config.streaming_mode.style,
-        config.streaming_mode.network_speed_mbps,
-    );
+            // 推奨設定を計算
+            let recommendations = RecommendationEngine::calculate_recommendations(
+                &hardware,
+                &current_settings,
+                config.streaming_mode.platform,
+                config.streaming_mode.style,
+                config.streaming_mode.network_speed_mbps,
+            );
 
-    // 推奨設定をOBSに適用
-    crate::obs::settings::apply_video_settings(
-        recommendations.video.output_width,
-        recommendations.video.output_height,
-        recommendations.video.fps,
-    ).await?;
+            // 推奨設定をOBSに適用
+            crate::obs::settings::apply_video_settings(
+                recommendations.video.output_width,
+                recommendations.video.output_height,
+                recommendations.video.fps,
+            )
+            .await?;
 
-    Ok(())
+            Ok(())
+        })
+        .await
 }
 
 /// カスタム推奨設定を適用
+///
+/// TOCTOU競合条件を防ぐためロックを使用。
 #[tauri::command]
 pub async fn apply_custom_settings(
     platform: StreamingPlatform,
     style: StreamingStyle,
     network_speed_mbps: f64,
 ) -> Result<(), AppError> {
-    // 配信中の場合は適用を拒否
     let streaming_service = get_streaming_mode_service();
-    if streaming_service.is_streaming_mode().await {
-        return Err(AppError::obs_state(
-            "配信中のため設定を変更できません。配信を停止してから再度お試しください。"
-        ));
-    }
 
-    // OBS接続確認
-    let client = get_obs_client();
-    if !client.is_connected().await {
-        return Err(AppError::obs_state("OBSに接続されていません"));
-    }
+    // TOCTOU対策: ロックを取得し、配信中でないことを確認してから操作を実行
+    streaming_service
+        .execute_if_not_streaming(|| async {
+            // OBS接続確認
+            let client = get_obs_client();
+            if !client.is_connected().await {
+                return Err(AppError::obs_state("OBSに接続されていません"));
+            }
 
-    // 現在の設定をバックアップ
-    backup_current_settings().await?;
+            // 現在の設定をバックアップ
+            backup_current_settings_internal().await?;
 
-    // 推奨設定を計算
-    let current_settings = get_obs_settings().await?;
-    let hardware = get_hardware_info().await;
+            // 推奨設定を計算
+            let current_settings = get_obs_settings().await?;
+            let hardware = get_hardware_info().await;
 
-    // 推奨設定を計算
-    let recommendations = RecommendationEngine::calculate_recommendations(
-        &hardware,
-        &current_settings,
-        platform,
-        style,
-        network_speed_mbps,
-    );
+            // 推奨設定を計算
+            let recommendations = RecommendationEngine::calculate_recommendations(
+                &hardware,
+                &current_settings,
+                platform,
+                style,
+                network_speed_mbps,
+            );
 
-    // 推奨設定をOBSに適用
-    crate::obs::settings::apply_video_settings(
-        recommendations.video.output_width,
-        recommendations.video.output_height,
-        recommendations.video.fps,
-    ).await?;
+            // 推奨設定をOBSに適用
+            crate::obs::settings::apply_video_settings(
+                recommendations.video.output_width,
+                recommendations.video.output_height,
+                recommendations.video.fps,
+            )
+            .await?;
 
-    Ok(())
+            Ok(())
+        })
+        .await
 }
 
 /// プリセットに基づいて最適化を適用
@@ -140,46 +142,48 @@ pub async fn apply_custom_settings(
 ///
 /// # Returns
 /// 最適化結果（適用成功数、失敗数、エラーメッセージ）
+///
+/// TOCTOU競合条件を防ぐためロックを使用。
 #[tauri::command]
 pub async fn apply_optimization(
     preset: String,
     selected_keys: Option<Vec<String>>,
 ) -> Result<OptimizationResult, AppError> {
-    // プリセットの検証
+    // プリセットの検証（ロック取得前に行う）
     let valid_presets = ["low", "medium", "high", "ultra", "custom"];
     if !valid_presets.contains(&preset.as_str()) {
-        return Err(AppError::config_error(
-            &format!("無効なプリセット: {}。有効な値は low, medium, high, ultra, custom です", preset)
-        ));
+        return Err(AppError::config_error(&format!(
+            "無効なプリセット: {}。有効な値は low, medium, high, ultra, custom です",
+            preset
+        )));
     }
 
-    // 配信中の場合は適用を拒否
     let streaming_service = get_streaming_mode_service();
-    if streaming_service.is_streaming_mode().await {
-        return Err(AppError::obs_state(
-            "配信中のため設定を変更できません。配信を停止してから再度お試しください。"
-        ));
-    }
 
-    // OBS接続確認
-    let client = get_obs_client();
-    if !client.is_connected().await {
-        return Err(AppError::obs_state("OBSに接続されていません"));
-    }
+    // TOCTOU対策: ロックを取得し、配信中でないことを確認してから操作を実行
+    streaming_service
+        .execute_if_not_streaming(|| async {
+            // OBS接続確認
+            let client = get_obs_client();
+            if !client.is_connected().await {
+                return Err(AppError::obs_state("OBSに接続されていません"));
+            }
 
-    // 現在の設定をバックアップ
-    backup_current_settings().await?;
+            // 現在の設定をバックアップ
+            backup_current_settings_internal().await?;
 
-    // TODO: Phase 2bでOBS設定適用APIを実装予定
-    // 現在はダミーのレスポンスを返す
-    let _ = preset;
-    let _ = selected_keys;
+            // TODO: Phase 2bでOBS設定適用APIを実装予定
+            // 現在はダミーのレスポンスを返す
+            let _ = preset;
+            let _ = selected_keys;
 
-    Ok(OptimizationResult {
-        applied_count: 0,
-        failed_count: 0,
-        errors: vec![],
-    })
+            Ok(OptimizationResult {
+                applied_count: 0,
+                failed_count: 0,
+                errors: vec![],
+            })
+        })
+        .await
 }
 
 /// バックアップ一覧を取得
@@ -205,7 +209,7 @@ pub async fn get_backups() -> Result<Vec<BackupInfo>, AppError> {
                     settings: profile.settings,
                 }),
                 Err(e) => {
-                    eprintln!("[WARNING] バックアップの読み込みに失敗: {}", e);
+                    tracing::warn!(target: "optimization", error = %e, "バックアップの読み込みに失敗");
                     None
                 }
             }
@@ -216,9 +220,10 @@ pub async fn get_backups() -> Result<Vec<BackupInfo>, AppError> {
     Ok(backups)
 }
 
-/// 現在の設定をバックアップ
-#[tauri::command]
-pub async fn backup_current_settings() -> Result<String, AppError> {
+/// 現在の設定をバックアップ（内部関数）
+///
+/// TOCTOU対策済みの関数から呼び出される内部実装
+async fn backup_current_settings_internal() -> Result<String, AppError> {
     // 現在のOBS設定を取得
     let current_settings = get_obs_settings().await?;
 
@@ -234,9 +239,12 @@ pub async fn backup_current_settings() -> Result<String, AppError> {
     // バックアップをプロファイルとして保存
     let backup_profile = SettingsProfile {
         id: backup_id.clone(),
-        name: format!("バックアップ {}", chrono::DateTime::from_timestamp(now, 0)
-            .unwrap_or(chrono::DateTime::UNIX_EPOCH)
-            .format("%Y-%m-%d %H:%M:%S")),
+        name: format!(
+            "バックアップ {}",
+            chrono::DateTime::from_timestamp(now, 0)
+                .unwrap_or(chrono::DateTime::UNIX_EPOCH)
+                .format("%Y-%m-%d %H:%M:%S")
+        ),
         description: "自動バックアップ".to_string(),
         platform: StreamingPlatform::Other,
         style: StreamingStyle::Other,
@@ -256,7 +264,10 @@ pub async fn backup_current_settings() -> Result<String, AppError> {
                 bitrate_kbps: current_settings.output.bitrate_kbps,
                 keyframe_interval_secs: current_settings.output.keyframe_interval_secs,
                 preset: current_settings.output.preset,
-                rate_control: current_settings.output.rate_control.unwrap_or_else(|| "CBR".to_string()),
+                rate_control: current_settings
+                    .output
+                    .rate_control
+                    .unwrap_or_else(|| "CBR".to_string()),
             },
         },
         created_at: now,
@@ -268,27 +279,34 @@ pub async fn backup_current_settings() -> Result<String, AppError> {
     Ok(backup_id)
 }
 
+/// 現在の設定をバックアップ（Tauriコマンド）
+#[tauri::command]
+pub async fn backup_current_settings() -> Result<String, AppError> {
+    backup_current_settings_internal().await
+}
+
 /// バックアップから復元
+///
+/// TOCTOU競合条件を防ぐためロックを使用。
 #[tauri::command]
 pub async fn restore_backup(_backup_id: String) -> Result<(), AppError> {
-    // 配信中の場合は復元を拒否
     let streaming_service = get_streaming_mode_service();
-    if streaming_service.is_streaming_mode().await {
-        return Err(AppError::obs_state(
-            "配信中のため設定を変更できません。配信を停止してから再度お試しください。"
-        ));
-    }
 
-    // OBS接続確認
-    let client = get_obs_client();
-    if !client.is_connected().await {
-        return Err(AppError::obs_state("OBSに接続されていません"));
-    }
+    // TOCTOU対策: ロックを取得し、配信中でないことを確認してから操作を実行
+    streaming_service
+        .execute_if_not_streaming(|| async {
+            // OBS接続確認
+            let client = get_obs_client();
+            if !client.is_connected().await {
+                return Err(AppError::obs_state("OBSに接続されていません"));
+            }
 
-    // TODO: Phase 2bでOBS設定適用APIを実装予定
-    // _backup_idからプロファイルを読み込み、設定を復元
+            // TODO: Phase 2bでOBS設定適用APIを実装予定
+            // _backup_idからプロファイルを読み込み、設定を復元
 
-    Ok(())
+            Ok(())
+        })
+        .await
 }
 
 #[cfg(test)]
@@ -452,10 +470,10 @@ mod tests {
                 // プリセット検証を通過していればOBS_STATEエラーになるはず
                 // CONFIG_ERRORの場合はプリセット検証に失敗している
                 assert_eq!(e.code(), "OBS_STATE", "プリセット検証に失敗した可能性");
-            }
+            },
             Ok(_) => {
                 // OBS接続済みの場合は成功する可能性がある（テスト環境依存）
-            }
+            },
         }
     }
 
@@ -467,8 +485,8 @@ mod tests {
         match result {
             Err(e) => {
                 assert_eq!(e.code(), "OBS_STATE", "プリセット検証に失敗した可能性");
-            }
-            Ok(_) => { }
+            },
+            Ok(_) => {},
         }
     }
 
@@ -480,8 +498,8 @@ mod tests {
         match result {
             Err(e) => {
                 assert_eq!(e.code(), "OBS_STATE", "プリセット検証に失敗した可能性");
-            }
-            Ok(_) => { }
+            },
+            Ok(_) => {},
         }
     }
 
@@ -493,8 +511,8 @@ mod tests {
         match result {
             Err(e) => {
                 assert_eq!(e.code(), "OBS_STATE", "プリセット検証に失敗した可能性");
-            }
-            Ok(_) => { }
+            },
+            Ok(_) => {},
         }
     }
 
@@ -506,8 +524,8 @@ mod tests {
         match result {
             Err(e) => {
                 assert_eq!(e.code(), "OBS_STATE", "プリセット検証に失敗した可能性");
-            }
-            Ok(_) => { }
+            },
+            Ok(_) => {},
         }
     }
 
@@ -521,10 +539,10 @@ mod tests {
                 assert_eq!(e.code(), "CONFIG_ERROR");
                 assert!(e.message().contains("無効なプリセット"));
                 assert!(e.message().contains("invalid"));
-            }
+            },
             Ok(_) => {
                 panic!("無効なプリセットが受け入れられてしまった");
-            }
+            },
         }
     }
 
@@ -537,10 +555,10 @@ mod tests {
             Err(e) => {
                 assert_eq!(e.code(), "CONFIG_ERROR");
                 assert!(e.message().contains("無効なプリセット"));
-            }
+            },
             Ok(_) => {
                 panic!("大文字のプリセットが受け入れられてしまった");
-            }
+            },
         }
     }
 
@@ -553,10 +571,10 @@ mod tests {
             Err(e) => {
                 assert_eq!(e.code(), "CONFIG_ERROR");
                 assert!(e.message().contains("無効なプリセット"));
-            }
+            },
             Ok(_) => {
                 panic!("空のプリセットが受け入れられてしまった");
-            }
+            },
         }
     }
 
@@ -573,10 +591,10 @@ mod tests {
                 assert!(msg.contains("high"));
                 assert!(msg.contains("ultra"));
                 assert!(msg.contains("custom"));
-            }
+            },
             _ => {
                 panic!("エラーメッセージが返されるべき");
-            }
+            },
         }
     }
 

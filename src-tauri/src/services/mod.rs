@@ -39,7 +39,7 @@ pub use optimizer::{RecommendationEngine, HardwareInfo, RecommendedSettings};
 #[allow(unused_imports)]
 pub use alerts::{AlertEngine, Alert, AlertSeverity, MetricType, initialize_alert_engine, get_alert_engine};
 #[allow(unused_imports)]
-pub use streaming_mode::{StreamingModeService, get_streaming_mode_service};
+pub use streaming_mode::{StreamingModeService, SettingsLockGuard, get_streaming_mode_service};
 #[allow(unused_imports)]
 pub use analyzer::{ProblemAnalyzer, ProblemReport, ProblemCategory};
 #[allow(unused_imports)]

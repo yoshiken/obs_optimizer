@@ -36,15 +36,16 @@ pub struct ConnectionConfig {
     pub last_host: String,
     /// 最後に接続したポート
     pub last_port: u16,
-    /// パスワードを保存するか（セキュリティ上推奨しない）
+    /// パスワードを保存するか（OSのキーリングに保存）
     pub save_password: bool,
-    /// 保存されたパスワード（save_passwordがtrueの場合のみ使用）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub saved_password: Option<String>,
     /// 起動時に自動接続するか
     pub auto_connect_on_startup: bool,
     /// 接続タイムアウト（秒）
     pub connection_timeout_secs: u64,
+    /// 【移行用】旧プレーンテキストパスワード
+    /// 読み込み時に検出された場合、キーリングに移行して削除
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    saved_password: Option<String>,
 }
 
 impl Default for ConnectionConfig {
@@ -53,10 +54,33 @@ impl Default for ConnectionConfig {
             last_host: "localhost".to_string(),
             last_port: 4455,
             save_password: false,
-            saved_password: None,
             auto_connect_on_startup: false,
             connection_timeout_secs: 10,
+            saved_password: None,
         }
+    }
+}
+
+impl ConnectionConfig {
+    /// 旧プレーンテキストパスワードを取得（移行用）
+    ///
+    /// 設定ファイルにプレーンテキストで保存されていたパスワードを取得。
+    /// キーリングへの移行処理で使用する。
+    pub fn get_legacy_password(&self) -> Option<&str> {
+        self.saved_password.as_deref()
+    }
+
+    /// 旧プレーンテキストパスワードをクリア（移行後）
+    ///
+    /// キーリングへの移行が完了した後、設定ファイルから
+    /// プレーンテキストパスワードを削除する。
+    pub fn clear_legacy_password(&mut self) {
+        self.saved_password = None;
+    }
+
+    /// 旧プレーンテキストパスワードが存在するか
+    pub fn has_legacy_password(&self) -> bool {
+        self.saved_password.as_ref().is_some_and(|p| !p.is_empty())
     }
 }
 
@@ -257,7 +281,8 @@ fn ensure_config_dir() -> Result<PathBuf, AppError> {
 
 /// 設定ファイルを読み込む
 ///
-/// ファイルが存在しない場合はデフォルト値を返す
+/// ファイルが存在しない場合はデフォルト値を返す。
+/// プレーンテキストパスワードが検出された場合は、キーリングへの移行を試行する。
 pub fn load_config() -> Result<AppConfig, AppError> {
     let config_path = get_config_path()?;
 
@@ -267,9 +292,50 @@ pub fn load_config() -> Result<AppConfig, AppError> {
     }
 
     let content = std::fs::read_to_string(&config_path)?;
-    let config: AppConfig = serde_json::from_str(&content)?;
+    let mut config: AppConfig = serde_json::from_str(&content)?;
+
+    // プレーンテキストパスワードの移行処理
+    if config.connection.has_legacy_password() {
+        migrate_legacy_password(&mut config);
+    }
 
     Ok(config)
+}
+
+/// プレーンテキストパスワードをキーリングに移行
+///
+/// 移行成功時は設定ファイルからプレーンテキストを削除して保存。
+/// 移行失敗時は警告を出力するが、アプリは続行する。
+fn migrate_legacy_password(config: &mut AppConfig) {
+    use super::credentials::migrate_from_plaintext;
+
+    let legacy_password = config.connection.get_legacy_password();
+
+    match migrate_from_plaintext(legacy_password) {
+        Ok(true) => {
+            // 移行成功: プレーンテキストを削除して保存
+            config.connection.clear_legacy_password();
+            if let Err(e) = save_config(config) {
+                tracing::warn!(
+                    target: "config",
+                    error = %e,
+                    "設定ファイルの更新に失敗（パスワードは移行済み）"
+                );
+            } else {
+                tracing::info!(
+                    target: "config",
+                    "プレーンテキストパスワードを設定ファイルから削除しました"
+                );
+            }
+        },
+        Ok(false) => {
+            // キーリングが利用できない場合
+            // パスワードは設定ファイルに残る（後方互換性）
+        },
+        Err(e) => {
+            tracing::warn!(target: "config", error = %e, "パスワード移行エラー");
+        },
+    }
 }
 
 /// 設定ファイルを保存する
@@ -305,7 +371,10 @@ mod tests {
         let deserialized: AppConfig = serde_json::from_str(&json).unwrap();
 
         assert_eq!(config.version, deserialized.version);
-        assert_eq!(config.connection.last_host, deserialized.connection.last_host);
+        assert_eq!(
+            config.connection.last_host,
+            deserialized.connection.last_host
+        );
     }
 
     #[test]
@@ -363,7 +432,10 @@ mod tests {
         // ConnectionConfig デフォルト値
         assert_eq!(config.connection.last_host, "localhost");
         assert_eq!(config.connection.last_port, 4455);
-        assert!(!config.connection.save_password, "デフォルトではパスワード保存しない");
+        assert!(
+            !config.connection.save_password,
+            "デフォルトではパスワード保存しない"
+        );
         assert!(!config.connection.auto_connect_on_startup);
         assert_eq!(config.connection.connection_timeout_secs, 10);
 
@@ -407,9 +479,18 @@ mod tests {
 
         // 主要フィールドが一致
         assert_eq!(config.version, deserialized.version);
-        assert_eq!(config.connection.last_host, deserialized.connection.last_host);
-        assert_eq!(config.alerts.cpu_warning_threshold, deserialized.alerts.cpu_warning_threshold);
-        assert_eq!(config.streaming_mode.platform, deserialized.streaming_mode.platform);
+        assert_eq!(
+            config.connection.last_host,
+            deserialized.connection.last_host
+        );
+        assert_eq!(
+            config.alerts.cpu_warning_threshold,
+            deserialized.alerts.cpu_warning_threshold
+        );
+        assert_eq!(
+            config.streaming_mode.platform,
+            deserialized.streaming_mode.platform
+        );
     }
 
     #[test]
@@ -707,5 +788,80 @@ mod tests {
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: AppConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.connection.last_port, 4455);
+    }
+
+    // === レガシーパスワード移行テスト ===
+
+    #[test]
+    fn test_legacy_password_detection() {
+        // デフォルトではレガシーパスワードなし
+        let config = ConnectionConfig::default();
+        assert!(!config.has_legacy_password());
+        assert!(config.get_legacy_password().is_none());
+    }
+
+    #[test]
+    fn test_legacy_password_from_json() {
+        // 旧形式のJSONからレガシーパスワードを読み込む
+        let json_with_password = r#"{
+            "lastHost": "localhost",
+            "lastPort": 4455,
+            "savePassword": true,
+            "savedPassword": "secret123",
+            "autoConnectOnStartup": false,
+            "connectionTimeoutSecs": 10
+        }"#;
+
+        let config: ConnectionConfig = serde_json::from_str(json_with_password).unwrap();
+        assert!(config.has_legacy_password());
+        assert_eq!(config.get_legacy_password(), Some("secret123"));
+    }
+
+    #[test]
+    fn test_legacy_password_clear() {
+        let json_with_password = r#"{
+            "lastHost": "localhost",
+            "lastPort": 4455,
+            "savePassword": true,
+            "savedPassword": "secret123",
+            "autoConnectOnStartup": false,
+            "connectionTimeoutSecs": 10
+        }"#;
+
+        let mut config: ConnectionConfig = serde_json::from_str(json_with_password).unwrap();
+        assert!(config.has_legacy_password());
+
+        config.clear_legacy_password();
+        assert!(!config.has_legacy_password());
+        assert!(config.get_legacy_password().is_none());
+    }
+
+    #[test]
+    fn test_legacy_password_empty_string() {
+        // 空文字列はレガシーパスワードとして扱わない
+        let json_with_empty = r#"{
+            "lastHost": "localhost",
+            "lastPort": 4455,
+            "savePassword": true,
+            "savedPassword": "",
+            "autoConnectOnStartup": false,
+            "connectionTimeoutSecs": 10
+        }"#;
+
+        let config: ConnectionConfig = serde_json::from_str(json_with_empty).unwrap();
+        assert!(!config.has_legacy_password());
+    }
+
+    #[test]
+    fn test_legacy_password_not_serialized_when_none() {
+        // レガシーパスワードがNoneの場合、JSONには出力されない
+        let config = ConnectionConfig::default();
+        let json = serde_json::to_string_pretty(&config).unwrap();
+
+        // savedPasswordフィールドが含まれていないこと
+        assert!(
+            !json.contains("savedPassword"),
+            "Noneのsaved_passwordはシリアライズされない"
+        );
     }
 }

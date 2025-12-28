@@ -166,13 +166,13 @@ impl MetricsHistoryStore {
         // TODO: SQLite実装後、ここでデータベースに保存
         // 現在はメモリ内のみで保持（Phase 2b初期実装）
 
-        // デバッグログ（将来的にはtracingクレート導入予定）
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "[DEBUG] Saved metrics: cpu={:.1}%, mem={} MB, fps={:?}",
-            metrics.system.cpu_usage,
-            metrics.system.memory_used / 1024 / 1024,
-            metrics.obs.fps
+        // デバッグログ
+        tracing::debug!(
+            target: "metrics",
+            cpu_usage = %metrics.system.cpu_usage,
+            memory_mb = %(metrics.system.memory_used / 1024 / 1024),
+            fps = ?metrics.obs.fps,
+            "Saved metrics"
         );
 
         // metricsは将来使用予定

@@ -166,12 +166,12 @@ pub fn get_profiles() -> Result<Vec<ProfileSummary>, AppError> {
                     }
                     Err(e) => {
                         // パースエラーは警告として出力し、スキップ
-                        eprintln!("[WARNING] プロファイルのパースに失敗: {:?}, エラー: {}", path, e);
+                        tracing::warn!(target: "profiles", "プロファイルのパースに失敗: {:?}, エラー: {}", path, e);
                     }
                 }
             }
             Err(e) => {
-                eprintln!("[WARNING] プロファイルファイルの読み込みに失敗: {:?}, エラー: {}", path, e);
+                tracing::warn!(target: "profiles", "プロファイルファイルの読み込みに失敗: {:?}, エラー: {}", path, e);
             }
         }
     }

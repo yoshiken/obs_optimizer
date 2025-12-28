@@ -4,14 +4,21 @@
 // - 設定ファイルの読み書き (JSON)
 // - セッション履歴のデータベース操作 (SQLite)
 // - アプリケーションデータディレクトリの管理
+// - セキュアなパスワード管理 (OSキーリング)
 
 pub mod config;
+pub mod credentials;
 pub mod profiles;
 pub mod metrics_history;
 
 // 将来的な拡張や外部クレートからの利用を想定した再エクスポート
 #[allow(unused_imports)]
 pub use config::{AppConfig, load_config, save_config};
+#[allow(unused_imports)]
+pub use credentials::{
+    save_obs_password, get_obs_password, delete_obs_password,
+    migrate_from_plaintext, ERROR_CODE_KEYRING,
+};
 #[allow(unused_imports)]
 pub use profiles::{
     SettingsProfile, ProfileSettings, ProfileSummary,
