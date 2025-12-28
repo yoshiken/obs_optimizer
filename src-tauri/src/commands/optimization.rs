@@ -318,11 +318,57 @@ pub async fn restore_backup(_backup_id: String) -> Result<(), AppError> {
 /// プロファイルパラメータを使用して出力設定を適用
 ///
 /// OBS WebSocket の SetProfileParameter を使用して
-/// エンコーダ、ビットレート、プリセット等を設定する
+/// エンコーダ、ビットレート、プリセット等を設定する。
+/// 基本モードの場合は詳細モードに切り替えてから設定を適用。
 async fn apply_output_settings_via_profile(
     client: &crate::obs::ObsClient,
     output: &crate::services::RecommendedOutputSettings,
 ) -> Result<(), AppError> {
+    // 出力モードを取得（Simple or Advanced）
+    let output_mode = client
+        .get_profile_parameter("Output", "Mode")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "Simple".to_string());
+
+    tracing::info!(
+        target: "optimization",
+        mode = %output_mode,
+        "OBS出力モードを検出"
+    );
+
+    // 基本モードの場合は詳細モードに切り替え
+    if output_mode != "Advanced" {
+        tracing::info!(
+            target: "optimization",
+            "基本モードから詳細モードに切り替えます"
+        );
+        if let Err(e) = client
+            .set_profile_parameter("Output", "Mode", Some("Advanced"))
+            .await
+        {
+            tracing::warn!(
+                target: "optimization",
+                error = %e,
+                "詳細モードへの切り替えに失敗"
+            );
+            // 失敗しても基本モードで続行を試みる
+            return apply_simple_output_settings(client, output).await;
+        }
+    }
+
+    // 詳細モードで設定を適用
+    apply_advanced_output_settings(client, output).await
+}
+
+/// 基本（Simple）出力モードの設定を適用
+async fn apply_simple_output_settings(
+    client: &crate::obs::ObsClient,
+    output: &crate::services::RecommendedOutputSettings,
+) -> Result<(), AppError> {
+    tracing::info!(target: "optimization", "基本出力モードの設定を適用中...");
+
     // エンコーダを設定
     if let Err(e) = client
         .set_profile_parameter("SimpleOutput", "StreamEncoder", Some(&output.encoder))
@@ -402,6 +448,88 @@ async fn apply_output_settings_via_profile(
             target: "optimization",
             keyframe_interval = output.keyframe_interval_secs,
             "キーフレーム間隔を設定しました"
+        );
+    }
+
+    Ok(())
+}
+
+/// 詳細（Advanced）出力モードの設定を適用
+async fn apply_advanced_output_settings(
+    client: &crate::obs::ObsClient,
+    output: &crate::services::RecommendedOutputSettings,
+) -> Result<(), AppError> {
+    tracing::info!(target: "optimization", "詳細出力モードの設定を適用中...");
+
+    // 詳細モードではストリーミングエンコーダを設定
+    if let Err(e) = client
+        .set_profile_parameter("AdvOut", "Encoder", Some(&output.encoder))
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            encoder = %output.encoder,
+            "エンコーダの設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            encoder = %output.encoder,
+            "エンコーダを設定しました"
+        );
+    }
+
+    // ビットレートを設定（詳細モードではTrackXBitrateを使用）
+    // Track1が通常のストリーミングオーディオ
+    if let Err(e) = client
+        .set_profile_parameter("AdvOut", "VBitrate", Some(&output.bitrate_kbps.to_string()))
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            bitrate = output.bitrate_kbps,
+            "ビットレートの設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            bitrate = output.bitrate_kbps,
+            "ビットレートを設定しました"
+        );
+    }
+
+    // キーフレーム間隔を設定
+    if let Err(e) = client
+        .set_profile_parameter(
+            "AdvOut",
+            "KeyIntSec",
+            Some(&output.keyframe_interval_secs.to_string()),
+        )
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            keyframe_interval = output.keyframe_interval_secs,
+            "キーフレーム間隔の設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            keyframe_interval = output.keyframe_interval_secs,
+            "キーフレーム間隔を設定しました"
+        );
+    }
+
+    // 詳細モードではプリセットはエンコーダ固有の設定になるため、
+    // 別途対応が必要（エンコーダごとにパラメータ名が異なる）
+    if let Some(ref preset) = output.preset {
+        tracing::info!(
+            target: "optimization",
+            preset = %preset,
+            "詳細モードのプリセット設定はエンコーダ固有のため、手動設定が必要な場合があります"
         );
     }
 
