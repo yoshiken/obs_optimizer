@@ -80,6 +80,9 @@ pub async fn apply_recommended_settings() -> Result<(), AppError> {
             )
             .await?;
 
+            // プロファイルパラメータでビットレート・プリセットを適用
+            apply_output_settings_via_profile(&client, &recommendations.output).await?;
+
             Ok(())
         })
         .await
@@ -128,6 +131,9 @@ pub async fn apply_custom_settings(
                 recommendations.video.fps,
             )
             .await?;
+
+            // プロファイルパラメータでビットレート・プリセットを適用
+            apply_output_settings_via_profile(&client, &recommendations.output).await?;
 
             Ok(())
         })
@@ -307,6 +313,99 @@ pub async fn restore_backup(_backup_id: String) -> Result<(), AppError> {
             Ok(())
         })
         .await
+}
+
+/// プロファイルパラメータを使用して出力設定を適用
+///
+/// OBS WebSocket の SetProfileParameter を使用して
+/// エンコーダ、ビットレート、プリセット等を設定する
+async fn apply_output_settings_via_profile(
+    client: &crate::obs::ObsClient,
+    output: &crate::services::RecommendedOutputSettings,
+) -> Result<(), AppError> {
+    // エンコーダを設定
+    if let Err(e) = client
+        .set_profile_parameter("SimpleOutput", "StreamEncoder", Some(&output.encoder))
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            encoder = %output.encoder,
+            "エンコーダの設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            encoder = %output.encoder,
+            "エンコーダを設定しました"
+        );
+    }
+
+    // ビットレートを設定
+    if let Err(e) = client
+        .set_profile_parameter("SimpleOutput", "VBitrate", Some(&output.bitrate_kbps.to_string()))
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            bitrate = output.bitrate_kbps,
+            "ビットレートの設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            bitrate = output.bitrate_kbps,
+            "ビットレートを設定しました"
+        );
+    }
+
+    // プリセットを設定（存在する場合のみ）
+    if let Some(ref preset) = output.preset {
+        if let Err(e) = client
+            .set_profile_parameter("SimpleOutput", "Preset", Some(preset))
+            .await
+        {
+            tracing::warn!(
+                target: "optimization",
+                error = %e,
+                preset = %preset,
+                "プリセットの設定に失敗"
+            );
+        } else {
+            tracing::info!(
+                target: "optimization",
+                preset = %preset,
+                "プリセットを設定しました"
+            );
+        }
+    }
+
+    // キーフレーム間隔を設定
+    if let Err(e) = client
+        .set_profile_parameter(
+            "SimpleOutput",
+            "VKeyIntSec",
+            Some(&output.keyframe_interval_secs.to_string()),
+        )
+        .await
+    {
+        tracing::warn!(
+            target: "optimization",
+            error = %e,
+            keyframe_interval = output.keyframe_interval_secs,
+            "キーフレーム間隔の設定に失敗"
+        );
+    } else {
+        tracing::info!(
+            target: "optimization",
+            keyframe_interval = output.keyframe_interval_secs,
+            "キーフレーム間隔を設定しました"
+        );
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

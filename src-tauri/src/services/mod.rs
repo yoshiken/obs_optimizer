@@ -35,7 +35,7 @@ pub use obs::obs_service;
 #[allow(unused_imports)]
 pub use system::system_monitor_service;
 #[allow(unused_imports)]
-pub use optimizer::{RecommendationEngine, HardwareInfo, RecommendedSettings};
+pub use optimizer::{RecommendationEngine, HardwareInfo, RecommendedSettings, RecommendedOutputSettings};
 #[allow(unused_imports)]
 pub use alerts::{AlertEngine, Alert, AlertSeverity, MetricType, initialize_alert_engine, get_alert_engine};
 #[allow(unused_imports)]
