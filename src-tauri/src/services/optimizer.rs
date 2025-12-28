@@ -985,4 +985,899 @@ mod tests {
         );
         assert_eq!(niconico_music.audio.bitrate_kbps, 128, "ニコニコ音声ビットレート上限");
     }
+
+    // === プラットフォーム制約の詳細テスト ===
+
+    #[test]
+    fn test_platform_bitrate_constraints_youtube() {
+        // YouTube: 最大9000kbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            100.0, // 高速回線
+        );
+
+        assert!(recommended.output.bitrate_kbps <= 9000,
+            "YouTubeは9000kbps上限: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_platform_bitrate_constraints_twitch() {
+        // Twitch: 最大6000kbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::Twitch,
+            StreamingStyle::Gaming,
+            100.0,
+        );
+
+        assert!(recommended.output.bitrate_kbps <= 6000,
+            "Twitchは6000kbps上限: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_platform_bitrate_constraints_niconico() {
+        // ニコニコ: 最大6000kbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::NicoNico,
+            StreamingStyle::Gaming,
+            100.0,
+        );
+
+        assert!(recommended.output.bitrate_kbps <= 6000,
+            "ニコニコは6000kbps上限: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_platform_bitrate_constraints_twitcasting() {
+        // ツイキャス: 最大60000kbps（実質制限なし）
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::TwitCasting,
+            StreamingStyle::Gaming,
+            100.0,
+        );
+
+        // 回線速度80%制限で 100 * 1000 * 0.8 = 80000だが、
+        // プラットフォーム制限60000が適用される
+        assert!(recommended.output.bitrate_kbps <= 60000,
+            "ツイキャスは60000kbps上限: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    // === ネットワーク制約の詳細テスト ===
+
+    #[test]
+    fn test_network_constraint_super_low_speed() {
+        // 超低速回線: 2Mbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            2.0,
+        );
+
+        // 2.0 * 1000 * 0.8 = 1600kbps だが、min_bitrate=2000で底上げ
+        // 超低速回線では2500kbps上限
+        assert!(recommended.output.bitrate_kbps <= 2500,
+            "2Mbps回線では2500kbps以下: {}kbps", recommended.output.bitrate_kbps);
+        assert!(recommended.output.bitrate_kbps >= 2000,
+            "最低ビットレート2000kbps保証: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_network_constraint_low_speed() {
+        // 低速回線: 4Mbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            4.0,
+        );
+
+        // 4.0 * 1000 * 0.8 = 3200kbps、低速回線では3500kbps上限
+        assert!(recommended.output.bitrate_kbps <= 3500,
+            "4Mbps回線では3500kbps以下: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_network_constraint_medium_speed() {
+        // 中速回線: 7Mbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            7.0,
+        );
+
+        // 7.0 * 1000 * 0.8 = 5600kbps
+        // プラットフォーム最大9000kbps * 1.2(Gaming) = 10800kbps * 0.8 = 8640kbps
+        // → 5600kbps制限が適用される
+        assert!(recommended.output.bitrate_kbps <= 5600,
+            "7Mbps回線では5600kbps以下: {}kbps", recommended.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_network_constraint_high_speed() {
+        // 高速回線: 20Mbps
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            20.0,
+        );
+
+        // 20.0 * 1000 * 0.8 = 16000kbps
+        // プラットフォーム最大9000kbps * 1.2(Gaming) = 10800kbps
+        // → 9000kbps上限が適用される
+        assert!(recommended.output.bitrate_kbps <= 9000,
+            "YouTubeプラットフォーム上限9000kbps: {}kbps", recommended.output.bitrate_kbps);
+        assert!(
+            recommended.reasons.iter().any(|r| r.contains("高速回線") || r.contains("9,000kbps")),
+            "高速回線の検出メッセージが含まれる"
+        );
+    }
+
+    #[test]
+    fn test_network_vs_platform_limit_youtube() {
+        // ネットワーク制限 vs プラットフォーム制限（YouTube）
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        // ケース1: ネットワークが制限要因（5Mbps）
+        let network_limited = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            5.0,
+        );
+        assert!(network_limited.output.bitrate_kbps <= 4000,
+            "5Mbps回線では4000kbps以下");
+
+        // ケース2: プラットフォームが制限要因（50Mbps）
+        let platform_limited = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            50.0,
+        );
+        assert!(platform_limited.output.bitrate_kbps <= 9000,
+            "YouTube上限9000kbps");
+    }
+
+    #[test]
+    fn test_network_vs_platform_limit_twitch() {
+        // ネットワーク制限 vs プラットフォーム制限（Twitch）
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        // ケース1: ネットワークが制限要因（3Mbps）
+        let network_limited = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::Twitch,
+            StreamingStyle::Gaming,
+            3.0,
+        );
+        assert!(network_limited.output.bitrate_kbps <= 2500,
+            "3Mbps回線では2500kbps以下");
+
+        // ケース2: プラットフォームが制限要因（20Mbps）
+        let platform_limited = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::Twitch,
+            StreamingStyle::Gaming,
+            20.0,
+        );
+        assert!(platform_limited.output.bitrate_kbps <= 6000,
+            "Twitch上限6000kbps");
+    }
+
+    // === ハードウェアティア影響テスト ===
+
+    #[test]
+    fn test_hardware_tier_low_cpu_cores() {
+        // 低コアCPU（2コア）
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 2;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 4コア未満は720p推奨
+        assert_eq!(recommended.video.output_width, 1280, "2コアでは720p");
+        assert_eq!(recommended.video.output_height, 720);
+        // Gaming (fps_multiplier=1.0) でも低コアでは30fps制限
+        assert_eq!(recommended.video.fps, 30, "2コアでは30fps");
+    }
+
+    #[test]
+    fn test_hardware_tier_mid_cpu_cores() {
+        // ミドルCPU（4コア）
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 4;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 4コア以上は1080p可能
+        assert_eq!(recommended.video.output_width, 1920, "4コアでは1080p");
+        assert_eq!(recommended.video.output_height, 1080);
+    }
+
+    #[test]
+    fn test_hardware_tier_high_cpu_cores() {
+        // ハイエンドCPU（16コア）
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 16;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 高コアCPUでも解像度は変わらない（プラットフォーム設定依存）
+        assert_eq!(recommended.video.output_width, 1920);
+        assert_eq!(recommended.video.output_height, 1080);
+        // プリセットが高品質になる
+        assert!(recommended.output.preset.is_some());
+    }
+
+    #[test]
+    fn test_hardware_tier_very_low_memory() {
+        // 超低メモリ（4GB）
+        let mut hardware = create_test_hardware();
+        hardware.total_memory_gb = 4.0;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // メモリ容量は解像度判定に直接影響しない（CPU依存）
+        // ただし、将来的な拡張の余地を確認
+        assert!(recommended.overall_score <= 100);
+    }
+
+    #[test]
+    fn test_hardware_tier_high_memory() {
+        // 高メモリ（32GB）
+        let mut hardware = create_test_hardware();
+        hardware.total_memory_gb = 32.0;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 高メモリでも解像度は変わらない
+        assert_eq!(recommended.video.output_width, 1920);
+        assert_eq!(recommended.video.output_height, 1080);
+    }
+
+    #[test]
+    fn test_hardware_tier_no_gpu_low_cpu() {
+        // GPU無し＆低性能CPU（2コア）
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 2;
+        hardware.gpu = None;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // x264エンコーダー
+        assert_eq!(recommended.output.encoder, "obs_x264");
+        // 低性能なので720p30fps
+        assert_eq!(recommended.video.output_width, 1280);
+        assert_eq!(recommended.video.output_height, 720);
+        assert_eq!(recommended.video.fps, 30);
+    }
+
+    // === GPU世代検出テスト ===
+
+    #[test]
+    fn test_gpu_generation_nvidia_ada() {
+        // NVIDIA Ada（RTX 40シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce RTX 4090".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // AV1対応（YouTube）
+        assert_eq!(recommended.output.encoder, "jim_av1_nvenc",
+            "RTX 40シリーズはYouTubeでAV1推奨");
+    }
+
+    #[test]
+    fn test_gpu_generation_nvidia_ada_twitch() {
+        // NVIDIA Ada（RTX 40シリーズ）on Twitch
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce RTX 4070".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::Twitch,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // TwitchではH.264
+        assert_eq!(recommended.output.encoder, "ffmpeg_nvenc",
+            "TwitchではH.264使用");
+    }
+
+    #[test]
+    fn test_gpu_generation_nvidia_blackwell() {
+        // NVIDIA Blackwell（RTX 50シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce RTX 5090".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 最新世代もAV1対応
+        assert_eq!(recommended.output.encoder, "jim_av1_nvenc",
+            "RTX 50シリーズはAV1推奨");
+    }
+
+    #[test]
+    fn test_gpu_generation_nvidia_ampere() {
+        // NVIDIA Ampere（RTX 30シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce RTX 3070".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // AmpereはAV1非対応
+        assert_eq!(recommended.output.encoder, "ffmpeg_nvenc",
+            "RTX 30シリーズはH.264使用");
+    }
+
+    #[test]
+    fn test_gpu_generation_nvidia_turing() {
+        // NVIDIA Turing（RTX 20/GTX 16シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce GTX 1660 Ti".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        assert_eq!(recommended.output.encoder, "ffmpeg_nvenc");
+    }
+
+    #[test]
+    fn test_gpu_generation_nvidia_pascal() {
+        // NVIDIA Pascal（GTX 10シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "NVIDIA GeForce GTX 1060".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // Pascalは品質が低いが、CPUがハイエンドでないのでNVENC
+        assert_eq!(recommended.output.encoder, "ffmpeg_nvenc");
+    }
+
+    #[test]
+    fn test_gpu_generation_amd_vcn4() {
+        // AMD VCN4（RX 7000シリーズ）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "AMD Radeon RX 7900 XTX".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        assert_eq!(recommended.output.encoder, "amd_amf_h264");
+    }
+
+    #[test]
+    fn test_gpu_generation_intel_arc() {
+        // Intel Arc
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "Intel Arc A770".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // Intel ArcはAV1対応
+        assert_eq!(recommended.output.encoder, "obs_qsv11_av1");
+    }
+
+    #[test]
+    fn test_gpu_generation_intel_quicksync() {
+        // Intel QuickSync（内蔵GPU）
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "Intel UHD Graphics 770".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        assert_eq!(recommended.output.encoder, "obs_qsv11");
+    }
+
+    // === エッジケーステスト ===
+
+    #[test]
+    fn test_edge_case_negative_network_speed() {
+        // 異常値: 負のネットワーク速度
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            -1.0,
+        );
+
+        // クラッシュせず最小ビットレート推奨
+        assert!(recommended.output.bitrate_kbps >= 2000,
+            "負のネットワーク速度でも最低ビットレート保証");
+    }
+
+    #[test]
+    fn test_edge_case_zero_cpu_cores() {
+        // 異常値: 0コア
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 0;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // クラッシュせずに推奨設定を生成
+        assert!(recommended.overall_score <= 100);
+        // 0コアはEntryティア扱い
+        assert_eq!(recommended.video.output_width, 1280, "0コアは720p推奨");
+    }
+
+    #[test]
+    fn test_edge_case_extremely_high_cpu_cores() {
+        // 極端な値: 128コア
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 128;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 正常に処理される
+        assert_eq!(recommended.video.output_width, 1920);
+        assert_eq!(recommended.video.output_height, 1080);
+    }
+
+    #[test]
+    fn test_edge_case_zero_memory() {
+        // 異常値: 0GBメモリ
+        let mut hardware = create_test_hardware();
+        hardware.total_memory_gb = 0.0;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // クラッシュせず推奨設定を生成
+        assert!(recommended.overall_score <= 100);
+    }
+
+    #[test]
+    fn test_edge_case_unknown_gpu() {
+        // 不明なGPU名
+        let mut hardware = create_test_hardware();
+        hardware.gpu = Some(GpuInfo {
+            name: "Unknown Exotic GPU 9000".to_string(),
+        });
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 不明GPUはCPUエンコーダーにフォールバック
+        assert_eq!(recommended.output.encoder, "obs_x264");
+    }
+
+    #[test]
+    fn test_edge_case_combined_low_specs() {
+        // 複合エッジケース: 低CPU、低メモリ、低回線
+        let mut hardware = create_test_hardware();
+        hardware.cpu_cores = 2;
+        hardware.total_memory_gb = 4.0;
+        hardware.gpu = None;
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            2.0, // 低速回線
+        );
+
+        // 全て低スペックでも推奨設定を生成
+        assert_eq!(recommended.video.output_width, 1280, "低スペックは720p");
+        assert_eq!(recommended.video.output_height, 720);
+        assert_eq!(recommended.video.fps, 30, "低スペックは30fps");
+        assert!(recommended.output.bitrate_kbps <= 2500, "低速回線制限");
+        assert!(recommended.output.bitrate_kbps >= 2000, "最低ビットレート保証");
+        assert!(recommended.reasons.len() > 0, "理由が含まれる");
+    }
+
+    // === 配信スタイルによる違いテスト ===
+
+    #[test]
+    fn test_style_talk_vs_gaming_bitrate() {
+        // トーク vs ゲーム: ビットレート比較
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let talk = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Talk,
+            10.0,
+        );
+
+        let gaming = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // トークはゲームより低ビットレート（0.8 vs 1.2倍率）
+        assert!(talk.output.bitrate_kbps < gaming.output.bitrate_kbps,
+            "トーク{}kbps < ゲーム{}kbps",
+            talk.output.bitrate_kbps, gaming.output.bitrate_kbps);
+    }
+
+    #[test]
+    fn test_style_talk_vs_gaming_fps() {
+        // トーク vs ゲーム: FPS比較
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let talk = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Talk,
+            10.0,
+        );
+
+        let gaming = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // トークは30fps、ゲームは60fps
+        assert_eq!(talk.video.fps, 30, "トークは30fps");
+        assert_eq!(gaming.video.fps, 60, "ゲームは60fps");
+    }
+
+    #[test]
+    fn test_style_music_high_audio_bitrate() {
+        // 音楽配信: 高音質音声
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let music = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Music,
+            10.0,
+        );
+
+        // 音楽は320kbps
+        assert_eq!(music.audio.bitrate_kbps, 320, "音楽は320kbps高音質");
+    }
+
+    #[test]
+    fn test_style_art_downscale_filter() {
+        // お絵描き: ダウンスケールフィルター
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let art = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Art,
+            10.0,
+        );
+
+        let gaming = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 両方ともBicubic（画面キャプチャ向け）
+        assert_eq!(art.video.downscale_filter, "Bicubic");
+        assert_eq!(gaming.video.downscale_filter, "Bicubic");
+    }
+
+    #[test]
+    fn test_style_talk_downscale_filter() {
+        // トーク: Lanczosフィルター（カメラ向け）
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let talk = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Talk,
+            10.0,
+        );
+
+        assert_eq!(talk.video.downscale_filter, "Lanczos",
+            "トークはLanczos（カメラ向け）");
+    }
+
+    // === スコア算出の詳細テスト ===
+
+    #[test]
+    fn test_score_resolution_mismatch() {
+        // 解像度不一致でスコア減少
+        let hardware = create_test_hardware();
+        let mut current = create_test_settings();
+        current.video.output_width = 1280;
+        current.video.output_height = 720;
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 推奨は1920x1080だが現在は1280x720なのでスコア低下
+        assert!(recommended.overall_score < 80,
+            "解像度不一致でスコア低下: {}", recommended.overall_score);
+    }
+
+    #[test]
+    fn test_score_fps_mismatch() {
+        // FPS不一致でスコア減少
+        let hardware = create_test_hardware();
+        let mut current = create_test_settings();
+        current.video.fps_numerator = 30;
+        current.video.fps_denominator = 1;
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 推奨は60fpsだが現在は30fpsなのでスコア低下
+        assert!(recommended.overall_score < 90,
+            "FPS不一致でスコア低下: {}", recommended.overall_score);
+    }
+
+    #[test]
+    fn test_score_bitrate_close_match() {
+        // ビットレートがほぼ一致（500kbps以内）
+        let hardware = create_test_hardware();
+        let current = create_test_settings();
+
+        let recommended = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 現在のビットレートを推奨値に近づける
+        let mut adjusted_current = current.clone();
+        adjusted_current.output.bitrate_kbps = recommended.output.bitrate_kbps + 300;
+
+        let score_check = RecommendationEngine::calculate_recommendations(
+            &hardware,
+            &adjusted_current,
+            StreamingPlatform::YouTube,
+            StreamingStyle::Gaming,
+            10.0,
+        );
+
+        // 500kbps以内なら高スコア（ビットレート分30点満点）
+        assert!(score_check.overall_score >= 50,
+            "ビットレート近似でスコア高め: {}", score_check.overall_score);
+    }
+
+    #[test]
+    fn test_reasons_not_empty() {
+        // すべてのパターンで理由が含まれることを確認
+        let test_cases = vec![
+            (StreamingPlatform::YouTube, StreamingStyle::Gaming, 10.0),
+            (StreamingPlatform::Twitch, StreamingStyle::Talk, 5.0),
+            (StreamingPlatform::NicoNico, StreamingStyle::Music, 3.0),
+            (StreamingPlatform::TwitCasting, StreamingStyle::Art, 20.0),
+        ];
+
+        for (platform, style, network_speed) in test_cases {
+            let hardware = create_test_hardware();
+            let current = create_test_settings();
+
+            let recommended = RecommendationEngine::calculate_recommendations(
+                &hardware,
+                &current,
+                platform,
+                style,
+                network_speed,
+            );
+
+            assert!(!recommended.reasons.is_empty(),
+                "{:?} {:?} で理由が空", platform, style);
+        }
+    }
 }

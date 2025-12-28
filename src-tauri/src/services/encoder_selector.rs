@@ -823,4 +823,630 @@ mod tests {
         let encoder = EncoderSelector::select_encoder(&ctx);
         assert_eq!(encoder.preset, "p1", "P4-3=P1に調整（P1未満にはならない）");
     }
+
+    // === AV1選択テスト ===
+
+    #[test]
+    fn test_av1_selection_youtube_ada_all_grades() {
+        // Ada世代の全グレードでYouTubeならAV1を選択
+        for grade in [GpuGrade::Flagship, GpuGrade::HighEnd, GpuGrade::UpperMid, GpuGrade::Mid, GpuGrade::Entry] {
+            let context = create_test_context_with_grade(
+                GpuGeneration::NvidiaAda,
+                grade,
+                CpuTier::Middle,
+            );
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "jim_av1_nvenc",
+                "Ada {:?} + YouTube should select AV1", grade);
+            assert_eq!(encoder.display_name, "AV1 (Hardware)");
+            assert!(encoder.reason.contains("AV1"));
+        }
+    }
+
+    #[test]
+    fn test_av1_selection_youtube_blackwell_all_grades() {
+        // Blackwell世代の全グレードでYouTubeならAV1を選択
+        for grade in [GpuGrade::Flagship, GpuGrade::HighEnd, GpuGrade::UpperMid, GpuGrade::Mid, GpuGrade::Entry] {
+            let context = create_test_context_with_grade(
+                GpuGeneration::NvidiaBlackwell,
+                grade,
+                CpuTier::Middle,
+            );
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "jim_av1_nvenc",
+                "Blackwell {:?} + YouTube should select AV1", grade);
+            assert_eq!(encoder.display_name, "AV1 (Hardware)");
+        }
+    }
+
+    #[test]
+    fn test_av1_selection_intel_arc_youtube() {
+        // Intel ArcでYouTubeならAV1を選択
+        let context = create_test_context(GpuGeneration::IntelArc, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_qsv11_av1");
+        assert_eq!(encoder.display_name, "AV1 (Hardware)");
+        assert_eq!(encoder.preset, "p7");
+        assert!(encoder.reason.contains("AV1"));
+    }
+
+    #[test]
+    fn test_no_av1_for_ampere() {
+        // Ampere世代はAV1非対応なのでH.264を使用
+        let context = create_test_context(GpuGeneration::NvidiaAmpere, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
+        assert!(!encoder.reason.contains("AV1"));
+    }
+
+    #[test]
+    fn test_no_av1_for_turing() {
+        // Turing世代はAV1非対応なのでH.264を使用
+        let context = create_test_context(GpuGeneration::NvidiaTuring, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
+        assert!(!encoder.reason.contains("AV1"));
+    }
+
+    // === NVENCフォールバックテスト ===
+
+    #[test]
+    fn test_nvenc_fallback_when_not_youtube() {
+        // AV1対応GPUでもYouTube以外ではH.264にフォールバック
+        let platforms = vec![
+            StreamingPlatform::Twitch,
+            StreamingPlatform::NicoNico,
+            StreamingPlatform::TwitCasting,
+            StreamingPlatform::Other,
+        ];
+
+        for platform in platforms {
+            let mut context = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
+            context.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "ffmpeg_nvenc",
+                "{:?} should use H.264, not AV1", platform);
+            assert_eq!(encoder.display_name, "NVIDIA NVENC H.264");
+        }
+    }
+
+    #[test]
+    fn test_nvenc_fallback_blackwell_non_youtube() {
+        // Blackwell世代でもYouTube以外ではH.264
+        let mut context = create_test_context(GpuGeneration::NvidiaBlackwell, CpuTier::Middle);
+        context.platform = StreamingPlatform::NicoNico;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "ffmpeg_nvenc");
+        assert!(encoder.reason.contains("RTX 50"));
+        assert!(!encoder.reason.contains("AV1"));
+    }
+
+    // === AMDエンコーダー選択テスト ===
+
+    #[test]
+    fn test_amd_vcn4_encoder_selection() {
+        // VCN 4.0（RX 7000シリーズ）の選択
+        let context = create_test_context(GpuGeneration::AmdVcn4, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "amd_amf_h264");
+        assert_eq!(encoder.display_name, "AMD AMF H.264");
+        assert_eq!(encoder.preset, "quality");
+        assert_eq!(encoder.b_frames, Some(2), "VCN 4.0 supports B-frames");
+        assert_eq!(encoder.rate_control, "CBR");
+        assert!(!encoder.look_ahead);
+        assert!(!encoder.psycho_visual_tuning);
+        assert_eq!(encoder.multipass_mode, "disabled");
+        assert!(encoder.reason.contains("RX 7000"));
+    }
+
+    #[test]
+    fn test_amd_vcn3_encoder_selection() {
+        // VCN 3.0（RX 6000シリーズ）の選択
+        let context = create_test_context(GpuGeneration::AmdVcn3, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "amd_amf_h264");
+        assert_eq!(encoder.display_name, "AMD AMF H.264");
+        assert_eq!(encoder.preset, "quality");
+        assert_eq!(encoder.b_frames, None, "VCN 3.0 does not support B-frames");
+        assert!(encoder.reason.contains("RX 6000"));
+    }
+
+    #[test]
+    fn test_amd_vcn4_all_platforms() {
+        // AMD VCN 4.0は全プラットフォームでH.264を使用（AV1非対応）
+        let platforms = vec![
+            StreamingPlatform::YouTube,
+            StreamingPlatform::Twitch,
+            StreamingPlatform::NicoNico,
+            StreamingPlatform::TwitCasting,
+        ];
+
+        for platform in platforms {
+            let mut context = create_test_context(GpuGeneration::AmdVcn4, CpuTier::Middle);
+            context.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "amd_amf_h264",
+                "AMD VCN 4.0 on {:?} should use H.264", platform);
+        }
+    }
+
+    // === Intel QuickSyncテスト ===
+
+    #[test]
+    fn test_intel_arc_h264_when_not_youtube() {
+        // Intel ArcでYouTube以外ならH.264を使用
+        let mut context = create_test_context(GpuGeneration::IntelArc, CpuTier::Middle);
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_qsv11");
+        assert_eq!(encoder.display_name, "Intel QuickSync H.264");
+        assert_eq!(encoder.preset, "balanced");
+        assert_eq!(encoder.b_frames, Some(2));
+        assert!(encoder.look_ahead, "Intel Arc supports look-ahead");
+        assert_eq!(encoder.profile, "high");
+        assert!(encoder.reason.contains("Intel Arc"));
+    }
+
+    #[test]
+    fn test_intel_quicksync_integrated_gpu() {
+        // Intel内蔵GPUの選択
+        let context = create_test_context(GpuGeneration::IntelQuickSync, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_qsv11");
+        assert_eq!(encoder.display_name, "Intel QuickSync H.264");
+        assert_eq!(encoder.preset, "balanced");
+        assert_eq!(encoder.b_frames, Some(2));
+        assert!(!encoder.look_ahead, "Integrated GPU does not have look-ahead");
+        assert_eq!(encoder.profile, "main", "Integrated GPU uses 'main' profile for compatibility");
+        assert!(encoder.reason.contains("内蔵GPU"));
+    }
+
+    #[test]
+    fn test_intel_quicksync_all_platforms() {
+        // Intel QuickSyncは全プラットフォームで同じ設定
+        for platform in [StreamingPlatform::YouTube, StreamingPlatform::Twitch, StreamingPlatform::NicoNico] {
+            let mut context = create_test_context(GpuGeneration::IntelQuickSync, CpuTier::Middle);
+            context.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "obs_qsv11");
+            assert_eq!(encoder.preset, "balanced");
+        }
+    }
+
+    // === CPUフォールバックテスト ===
+
+    #[test]
+    fn test_cpu_fallback_no_gpu() {
+        // GPU未検出時はx264を使用
+        let context = create_test_context(GpuGeneration::None, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_x264");
+        assert_eq!(encoder.display_name, "x264 (CPU)");
+        assert_eq!(encoder.preset, "veryfast");
+        assert_eq!(encoder.rate_control, "CBR");
+        assert_eq!(encoder.b_frames, Some(2));
+        assert!(!encoder.look_ahead);
+        assert_eq!(encoder.profile, "high");
+    }
+
+    #[test]
+    fn test_cpu_fallback_unknown_gpu() {
+        // GPU不明時もx264を使用
+        let context = create_test_context(GpuGeneration::Unknown, CpuTier::UpperMiddle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_x264");
+        assert_eq!(encoder.preset, "faster");
+    }
+
+    #[test]
+    fn test_x264_all_cpu_tiers() {
+        // 全CPUティアでのx264プリセット確認
+        let test_cases = vec![
+            (CpuTier::Entry, "ultrafast", Some("zerolatency")),
+            (CpuTier::Middle, "veryfast", None),
+            (CpuTier::UpperMiddle, "faster", None),
+            (CpuTier::HighEnd, "fast", None),
+        ];
+
+        for (cpu_tier, expected_preset, expected_tuning) in test_cases {
+            let context = create_test_context(GpuGeneration::None, cpu_tier);
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "obs_x264");
+            assert_eq!(encoder.preset, expected_preset,
+                "CPU tier {:?} should use preset {}", cpu_tier, expected_preset);
+            assert_eq!(encoder.tuning.as_deref(), expected_tuning,
+                "CPU tier {:?} tuning mismatch", cpu_tier);
+        }
+    }
+
+    #[test]
+    fn test_x264_entry_cpu_has_zerolatency() {
+        // エントリーCPUではzerolatencyチューニングを使用
+        let context = create_test_context(GpuGeneration::None, CpuTier::Entry);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.tuning, Some("zerolatency".to_string()),
+            "Entry CPU should use zerolatency tuning for low latency");
+        assert!(encoder.reason.contains("負荷が高い") || encoder.reason.contains("推奨"));
+    }
+
+    #[test]
+    fn test_x264_high_end_cpu_no_tuning() {
+        // ハイエンドCPUではチューニングなし（品質優先）
+        let context = create_test_context(GpuGeneration::None, CpuTier::HighEnd);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.tuning, None,
+            "High-end CPU should not use tuning for quality priority");
+        assert!(encoder.reason.contains("高性能CPU") || encoder.reason.contains("高品質"));
+    }
+
+    // === ティア別プリセット調整テスト ===
+
+    #[test]
+    fn test_preset_adjustment_tier_s() {
+        // TierS: プリセット調整なし、マルチパス有効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaAda,
+            GpuGrade::Flagship,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch; // H.264を使用
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierS);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p7", "TierS should keep p7");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierS should enable multipass");
+        assert!(encoder.reason.contains("最高性能"));
+    }
+
+    #[test]
+    fn test_preset_adjustment_tier_a() {
+        // TierA: プリセット調整なし、マルチパス有効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaAmpere,
+            GpuGrade::Flagship,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierA);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p6", "TierA Ampere should keep p6");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierA should enable multipass");
+        assert!(encoder.reason.contains("高性能"));
+    }
+
+    #[test]
+    fn test_preset_adjustment_tier_b() {
+        // TierB: -1段階調整、マルチパス有効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaAmpere,
+            GpuGrade::HighEnd,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierB);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p5", "TierB should adjust p6 to p5");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "TierB should enable multipass");
+        assert!(encoder.reason.contains("中上位") && encoder.reason.contains("1段階"));
+    }
+
+    #[test]
+    fn test_preset_adjustment_tier_c() {
+        // TierC: -1段階調整、マルチパス無効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaAmpere,
+            GpuGrade::Entry,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierC);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p5", "TierC should adjust p6 to p5");
+        assert_eq!(encoder.multipass_mode, "disabled", "TierC should disable multipass");
+        assert!(encoder.reason.contains("中位") && encoder.reason.contains("1段階"));
+    }
+
+    #[test]
+    fn test_preset_adjustment_tier_d() {
+        // TierD: -2段階調整、マルチパス無効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaTuring,
+            GpuGrade::Entry,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierD);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p3", "TierD should adjust p5 to p3");
+        assert_eq!(encoder.multipass_mode, "disabled", "TierD should disable multipass");
+        assert!(encoder.reason.contains("下位") && encoder.reason.contains("2段階"));
+    }
+
+    #[test]
+    fn test_preset_adjustment_tier_e() {
+        // TierE: -3段階調整、マルチパス無効
+        let context = create_test_context_with_grade(
+            GpuGeneration::NvidiaPascal,
+            GpuGrade::Entry,
+            CpuTier::Middle,
+        );
+        let mut ctx = context;
+        ctx.platform = StreamingPlatform::Twitch;
+
+        assert_eq!(ctx.effective_tier(), EffectiveTier::TierE);
+        let encoder = EncoderSelector::select_encoder(&ctx);
+
+        assert_eq!(encoder.preset, "p1", "TierE should adjust p4 to p1");
+        assert_eq!(encoder.multipass_mode, "disabled", "TierE should disable multipass");
+        assert!(encoder.reason.contains("エントリー") && encoder.reason.contains("3段階"));
+    }
+
+    // === 機能テスト（Psycho Visual Tuning, Look-ahead, B-frames） ===
+
+    #[test]
+    fn test_psycho_visual_tuning_enabled_for_turing_and_newer() {
+        // Turing以降はPsycho Visual Tuning有効
+        let turing_ctx = create_test_context_with_grade(
+            GpuGeneration::NvidiaTuring,
+            GpuGrade::HighEnd,
+            CpuTier::Middle,
+        );
+        let mut turing = turing_ctx;
+        turing.platform = StreamingPlatform::Twitch;
+
+        let turing_encoder = EncoderSelector::select_encoder(&turing);
+        assert!(turing_encoder.psycho_visual_tuning, "Turing should enable psycho visual tuning");
+
+        // Ampere, Ada, Blackwellも確認
+        for gen in [GpuGeneration::NvidiaAmpere, GpuGeneration::NvidiaAda, GpuGeneration::NvidiaBlackwell] {
+            let mut ctx = create_test_context(gen, CpuTier::Middle);
+            ctx.platform = StreamingPlatform::Twitch;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+            assert!(encoder.psycho_visual_tuning, "{:?} should enable psycho visual tuning", gen);
+        }
+    }
+
+    #[test]
+    fn test_psycho_visual_tuning_disabled_for_pascal() {
+        // PascalはPsycho Visual Tuning無効
+        let mut context = create_test_context(GpuGeneration::NvidiaPascal, CpuTier::Middle);
+        context.platform = StreamingPlatform::Twitch;
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert!(!encoder.psycho_visual_tuning, "Pascal should not enable psycho visual tuning");
+    }
+
+    #[test]
+    fn test_look_ahead_enabled_for_ampere_and_newer() {
+        // Ampere以降はLook-ahead有効
+        for gen in [GpuGeneration::NvidiaAmpere, GpuGeneration::NvidiaAda, GpuGeneration::NvidiaBlackwell] {
+            let mut ctx = create_test_context(gen, CpuTier::Middle);
+            ctx.platform = StreamingPlatform::Twitch;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+            assert!(encoder.look_ahead, "{:?} should enable look-ahead", gen);
+        }
+    }
+
+    #[test]
+    fn test_look_ahead_disabled_for_turing_and_older() {
+        // Turing以前はLook-ahead無効
+        for gen in [GpuGeneration::NvidiaTuring, GpuGeneration::NvidiaPascal] {
+            let mut ctx = create_test_context(gen, CpuTier::Middle);
+            ctx.platform = StreamingPlatform::Twitch;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+            assert!(!encoder.look_ahead, "{:?} should not enable look-ahead", gen);
+        }
+    }
+
+    #[test]
+    fn test_b_frames_supported_pascal_and_newer() {
+        // Pascal以降はBフレーム対応（Pascalを除く）
+        let test_cases = vec![
+            (GpuGeneration::NvidiaTuring, Some(2)),
+            (GpuGeneration::NvidiaAmpere, Some(2)),
+            (GpuGeneration::NvidiaAda, Some(2)),
+            (GpuGeneration::NvidiaBlackwell, Some(2)),
+            (GpuGeneration::NvidiaPascal, None), // Pascalは非対応
+        ];
+
+        for (gen, expected_b_frames) in test_cases {
+            let mut ctx = create_test_context(gen, CpuTier::Middle);
+            ctx.platform = StreamingPlatform::Twitch;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+            assert_eq!(encoder.b_frames, expected_b_frames,
+                "{:?} B-frames expectation", gen);
+        }
+    }
+
+    // === エッジケーステスト ===
+
+    #[test]
+    fn test_pascal_high_end_cpu_prefers_x264() {
+        // Pascal + ハイエンドCPUならx264を優先
+        let context = create_test_context(GpuGeneration::NvidiaPascal, CpuTier::HighEnd);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "obs_x264",
+            "Pascal with high-end CPU should prefer x264");
+        assert_eq!(encoder.preset, "fast");
+        assert!(encoder.reason.contains("ハイエンドCPU") || encoder.reason.contains("x264"));
+    }
+
+    #[test]
+    fn test_pascal_non_high_end_cpu_uses_nvenc() {
+        // Pascal + 非ハイエンドCPUならNVENCを使用
+        for cpu_tier in [CpuTier::Entry, CpuTier::Middle, CpuTier::UpperMiddle] {
+            let context = create_test_context(GpuGeneration::NvidiaPascal, cpu_tier);
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.encoder_id, "ffmpeg_nvenc",
+                "Pascal with {:?} CPU should use NVENC", cpu_tier);
+        }
+    }
+
+    #[test]
+    fn test_all_encoders_have_non_empty_reason() {
+        // すべてのエンコーダー選択結果に理由が記載されている
+        let test_cases = vec![
+            (GpuGeneration::NvidiaBlackwell, StreamingPlatform::YouTube),
+            (GpuGeneration::NvidiaAda, StreamingPlatform::Twitch),
+            (GpuGeneration::NvidiaAmpere, StreamingPlatform::NicoNico),
+            (GpuGeneration::NvidiaTuring, StreamingPlatform::YouTube),
+            (GpuGeneration::NvidiaPascal, StreamingPlatform::Twitch),
+            (GpuGeneration::AmdVcn4, StreamingPlatform::YouTube),
+            (GpuGeneration::AmdVcn3, StreamingPlatform::Twitch),
+            (GpuGeneration::IntelArc, StreamingPlatform::YouTube),
+            (GpuGeneration::IntelQuickSync, StreamingPlatform::Twitch),
+            (GpuGeneration::None, StreamingPlatform::YouTube),
+            (GpuGeneration::Unknown, StreamingPlatform::Twitch),
+        ];
+
+        for (gpu_gen, platform) in test_cases {
+            let mut ctx = create_test_context(gpu_gen, CpuTier::Middle);
+            ctx.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+
+            assert!(!encoder.reason.is_empty(),
+                "{:?} on {:?} must have a reason", gpu_gen, platform);
+        }
+    }
+
+    #[test]
+    fn test_all_encoders_use_cbr() {
+        // すべてのエンコーダーでCBRレート制御を使用
+        let all_generations = vec![
+            GpuGeneration::NvidiaBlackwell,
+            GpuGeneration::NvidiaAda,
+            GpuGeneration::NvidiaAmpere,
+            GpuGeneration::NvidiaTuring,
+            GpuGeneration::NvidiaPascal,
+            GpuGeneration::AmdVcn4,
+            GpuGeneration::AmdVcn3,
+            GpuGeneration::IntelArc,
+            GpuGeneration::IntelQuickSync,
+            GpuGeneration::None,
+        ];
+
+        for gpu_gen in all_generations {
+            let context = create_test_context(gpu_gen, CpuTier::Middle);
+            let encoder = EncoderSelector::select_encoder(&context);
+
+            assert_eq!(encoder.rate_control, "CBR",
+                "{:?} should use CBR rate control", gpu_gen);
+        }
+    }
+
+    #[test]
+    fn test_av1_encoder_settings() {
+        // AV1エンコーダーの詳細設定確認
+        let context = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
+        let encoder = EncoderSelector::select_encoder(&context);
+
+        assert_eq!(encoder.encoder_id, "jim_av1_nvenc");
+        assert_eq!(encoder.preset, "p7", "AV1 should use high quality preset");
+        assert_eq!(encoder.b_frames, Some(2));
+        assert!(encoder.look_ahead, "AV1 should enable look-ahead");
+        assert!(encoder.psycho_visual_tuning, "AV1 should enable psycho visual tuning");
+        assert_eq!(encoder.multipass_mode, "quarter_res", "AV1 should use multipass");
+        assert_eq!(encoder.tuning, Some("hq".to_string()), "AV1 should use HQ tuning");
+        assert_eq!(encoder.profile, "main", "AV1 should use main profile");
+    }
+
+    #[test]
+    fn test_encoder_display_names() {
+        // エンコーダーの表示名が正しいことを確認
+        let test_cases = vec![
+            (GpuGeneration::NvidiaAda, StreamingPlatform::YouTube, "AV1 (Hardware)"),
+            (GpuGeneration::NvidiaAda, StreamingPlatform::Twitch, "NVIDIA NVENC H.264"),
+            (GpuGeneration::AmdVcn4, StreamingPlatform::YouTube, "AMD AMF H.264"),
+            (GpuGeneration::IntelArc, StreamingPlatform::YouTube, "AV1 (Hardware)"),
+            (GpuGeneration::IntelArc, StreamingPlatform::Twitch, "Intel QuickSync H.264"),
+            (GpuGeneration::IntelQuickSync, StreamingPlatform::YouTube, "Intel QuickSync H.264"),
+            (GpuGeneration::None, StreamingPlatform::YouTube, "x264 (CPU)"),
+        ];
+
+        for (gpu_gen, platform, expected_name) in test_cases {
+            let mut ctx = create_test_context(gpu_gen, CpuTier::Middle);
+            ctx.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+
+            assert_eq!(encoder.display_name, expected_name,
+                "{:?} on {:?} display name mismatch", gpu_gen, platform);
+        }
+    }
+
+    #[test]
+    fn test_tuning_values() {
+        // チューニング値の確認
+        let mut nvenc_ctx = create_test_context(GpuGeneration::NvidiaAmpere, CpuTier::Middle);
+        nvenc_ctx.platform = StreamingPlatform::Twitch;
+        let nvenc = EncoderSelector::select_encoder(&nvenc_ctx);
+        assert_eq!(nvenc.tuning, Some("hq".to_string()), "NVENC should use HQ tuning");
+
+        let av1_ctx = create_test_context(GpuGeneration::NvidiaAda, CpuTier::Middle);
+        let av1 = EncoderSelector::select_encoder(&av1_ctx);
+        assert_eq!(av1.tuning, Some("hq".to_string()), "AV1 should use HQ tuning");
+
+        let x264_entry = create_test_context(GpuGeneration::None, CpuTier::Entry);
+        let x264_e = EncoderSelector::select_encoder(&x264_entry);
+        assert_eq!(x264_e.tuning, Some("zerolatency".to_string()),
+            "x264 Entry should use zerolatency");
+
+        let x264_high = create_test_context(GpuGeneration::None, CpuTier::HighEnd);
+        let x264_h = EncoderSelector::select_encoder(&x264_high);
+        assert_eq!(x264_h.tuning, None, "x264 HighEnd should not use tuning");
+    }
+
+    #[test]
+    fn test_profile_settings() {
+        // プロファイル設定の確認
+        let test_cases = vec![
+            (GpuGeneration::NvidiaAda, StreamingPlatform::YouTube, "main"), // AV1
+            (GpuGeneration::NvidiaAmpere, StreamingPlatform::Twitch, "high"), // NVENC H.264
+            (GpuGeneration::IntelQuickSync, StreamingPlatform::YouTube, "main"), // 内蔵GPU
+            (GpuGeneration::IntelArc, StreamingPlatform::Twitch, "high"), // Arc H.264
+            (GpuGeneration::None, StreamingPlatform::YouTube, "high"), // x264
+        ];
+
+        for (gpu_gen, platform, expected_profile) in test_cases {
+            let mut ctx = create_test_context(gpu_gen, CpuTier::Middle);
+            ctx.platform = platform;
+            let encoder = EncoderSelector::select_encoder(&ctx);
+
+            assert_eq!(encoder.profile, expected_profile,
+                "{:?} on {:?} profile mismatch", gpu_gen, platform);
+        }
+    }
 }
