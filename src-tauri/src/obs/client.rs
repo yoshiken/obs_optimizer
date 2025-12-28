@@ -427,7 +427,8 @@ impl ObsClient {
         Ok(current)
     }
 
-    /// プロファイルを切り替え
+    /// プロファイルを切り替え（将来のプロファイル切替機能用）
+    #[allow(dead_code)]
     pub async fn set_current_profile(&self, profile_name: &str) -> ObsResult<()> {
         let inner = self.inner.read().await;
 
