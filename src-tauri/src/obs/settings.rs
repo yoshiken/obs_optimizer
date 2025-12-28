@@ -221,22 +221,57 @@ fn get_audio_settings_from_obs() -> Result<AudioSettings, AppError> {
 
 /// 出力設定をOBSから取得
 ///
-/// 注意: OBS WebSocket の outputs().list() は OBS 32.0.4 で
-/// obs_output_get_width でクラッシュするバグがあるため、
-/// 現時点ではデフォルト値を返す
-async fn get_output_settings_from_obs(_client: &super::ObsClient) -> Result<OutputSettings, AppError> {
-    // TODO: OBS WebSocket のバグが修正されたら outputs().list() を使用
-    // 現時点では outputs().list() を呼ぶと OBS がクラッシュするため
-    // デフォルト値を返す
-    //
-    // 将来的には OBS 設定ファイル（basic.ini）から直接読み取ることを検討
-    Ok(OutputSettings {
+/// 注意: OBS WebSocket の outputs().list() は NDI 等のプラグインがある環境で
+/// obs_output_get_width でクラッシュするバグがある（OBS Issue #11645）
+/// そのため、取得を試みて失敗した場合はデフォルト値にフォールバックする
+async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<OutputSettings, AppError> {
+    // 出力一覧の取得を試みる（NDI等のプラグインがあるとクラッシュする可能性あり）
+    let outputs_result = client.get_output_list().await;
+
+    match outputs_result {
+        Ok(outputs) => {
+            // ストリーム出力を探す
+            let stream_output = outputs.iter()
+                .find(|o| o.name.contains("stream") || o.name.contains("streaming"))
+                .or_else(|| outputs.first());
+
+            if let Some(output) = stream_output {
+                // 出力の設定を取得
+                let settings_result: Result<StreamEncoderSettings, _> =
+                    client.get_output_settings(&output.name).await;
+
+                if let Ok(settings) = settings_result {
+                    return Ok(OutputSettings {
+                        encoder: output.name.clone(),
+                        bitrate_kbps: settings.bitrate.unwrap_or(6000),
+                        keyframe_interval_secs: settings.keyframe_interval.unwrap_or(2),
+                        preset: settings.preset,
+                        rate_control: settings.rate_control,
+                    });
+                }
+            }
+
+            // 出力が見つからない場合はデフォルト値
+            Ok(default_output_settings())
+        }
+        Err(e) => {
+            // GetOutputList が失敗した場合（NDIプラグイン等によるクラッシュ回避後）
+            // ログを出力してデフォルト値を返す
+            eprintln!("[WARNING] outputs().list() failed (possibly due to plugin conflict): {}", e);
+            Ok(default_output_settings())
+        }
+    }
+}
+
+/// デフォルトの出力設定
+fn default_output_settings() -> OutputSettings {
+    OutputSettings {
         encoder: "unknown".to_string(),
         bitrate_kbps: 6000,
         keyframe_interval_secs: 2,
         preset: None,
         rate_control: Some("CBR".to_string()),
-    })
+    }
 }
 
 /// 推奨ビデオ設定をOBSに適用
