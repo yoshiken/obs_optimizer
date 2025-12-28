@@ -220,33 +220,16 @@ fn get_audio_settings_from_obs() -> Result<AudioSettings, AppError> {
 }
 
 /// 出力設定をOBSから取得
-async fn get_output_settings_from_obs(client: &super::ObsClient) -> Result<OutputSettings, AppError> {
-    // ストリーム出力一覧から設定を取得
-    let outputs = client.get_output_list().await?;
-
-    // "simple_stream_output" または配信用出力を探す
-    let stream_output = outputs.iter()
-        .find(|o| o.name.contains("stream") || o.name.contains("streaming"))
-        .or_else(|| outputs.first());
-
-    // エンコーダー設定を取得
-    if let Some(output) = stream_output {
-        // 出力の設定を取得
-        let settings_result: Result<StreamEncoderSettings, _> =
-            client.get_output_settings(&output.name).await;
-
-        if let Ok(settings) = settings_result {
-            return Ok(OutputSettings {
-                encoder: output.name.clone(),
-                bitrate_kbps: settings.bitrate.unwrap_or(6000),
-                keyframe_interval_secs: settings.keyframe_interval.unwrap_or(2),
-                preset: settings.preset,
-                rate_control: settings.rate_control,
-            });
-        }
-    }
-
-    // 取得できなかった場合はデフォルト値
+///
+/// 注意: OBS WebSocket の outputs().list() は OBS 32.0.4 で
+/// obs_output_get_width でクラッシュするバグがあるため、
+/// 現時点ではデフォルト値を返す
+async fn get_output_settings_from_obs(_client: &super::ObsClient) -> Result<OutputSettings, AppError> {
+    // TODO: OBS WebSocket のバグが修正されたら outputs().list() を使用
+    // 現時点では outputs().list() を呼ぶと OBS がクラッシュするため
+    // デフォルト値を返す
+    //
+    // 将来的には OBS 設定ファイル（basic.ini）から直接読み取ることを検討
     Ok(OutputSettings {
         encoder: "unknown".to_string(),
         bitrate_kbps: 6000,
