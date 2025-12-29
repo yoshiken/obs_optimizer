@@ -17,6 +17,8 @@ pub struct CpuMetrics {
     pub core_count: usize,
     /// 各コアの使用率
     pub per_core_usage: Vec<f32>,
+    /// CPUモデル名（ブランド名）
+    pub cpu_name: String,
 }
 
 /// メモリ使用状況のメトリクス
@@ -71,6 +73,7 @@ pub async fn get_system_metrics() -> Result<SystemMetrics, AppError> {
     let cpu_usage = service.get_cpu_usage()?;
     let core_count = service.get_cpu_core_count()?;
     let per_core_usage = service.get_per_core_cpu_usage()?;
+    let cpu_name = service.get_cpu_name()?;
 
     let (memory_used, memory_total) = service.get_memory_info()?;
     let memory_available = service.get_available_memory()?;
@@ -88,6 +91,7 @@ pub async fn get_system_metrics() -> Result<SystemMetrics, AppError> {
             usage_percent: cpu_usage,
             core_count,
             per_core_usage,
+            cpu_name,
         },
         memory: MemoryMetrics {
             total_bytes: memory_total,

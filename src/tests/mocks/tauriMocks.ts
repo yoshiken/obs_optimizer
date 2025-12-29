@@ -38,6 +38,7 @@ export const mockSystemMetrics: SystemMetrics = {
     usagePercent: 45.5,
     coreCount: 8,
     perCoreUsage: [40, 50, 45, 42, 48, 43, 47, 44],
+    cpuName: 'Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz',
   },
   memory: {
     totalBytes: 16000000000,

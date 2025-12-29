@@ -73,6 +73,14 @@ impl SystemMonitorService {
         monitor::get_available_memory()
     }
 
+    /// CPUモデル名（ブランド名）を取得
+    ///
+    /// # Returns
+    /// CPUのブランド名（例: "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz"）
+    pub fn get_cpu_name(&self) -> Result<String, AppError> {
+        monitor::get_cpu_name()
+    }
+
     /// GPUメトリクスを取得
     ///
     /// # Returns

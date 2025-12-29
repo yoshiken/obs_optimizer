@@ -97,6 +97,8 @@ export interface CpuMetrics {
   coreCount: number;
   /** 各コアの使用率 */
   perCoreUsage: number[];
+  /** CPUモデル名（ブランド名） */
+  cpuName: string;
 }
 
 /** メモリ使用状況のメトリクス */

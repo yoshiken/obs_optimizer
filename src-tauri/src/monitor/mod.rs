@@ -93,3 +93,20 @@ pub fn get_available_memory() -> Result<u64, AppError> {
     sys.refresh_memory();
     Ok(sys.available_memory())
 }
+
+/// CPU名（ブランド名）を取得
+///
+/// 最初のCPUコアのブランド情報を返す。
+/// システムにCPUが見つからない場合は "Unknown CPU" を返す。
+pub fn get_cpu_name() -> Result<String, AppError> {
+    let sys = SYSTEM.lock()
+        .map_err(|e| AppError::system_monitor(&format!("Failed to lock system mutex: {e}")))?;
+
+    // 最初のCPUコアのブランド名を取得
+    let cpu_name = sys.cpus()
+        .first()
+        .map(|cpu| cpu.brand().to_string())
+        .unwrap_or_else(|| "Unknown CPU".to_string());
+
+    Ok(cpu_name)
+}

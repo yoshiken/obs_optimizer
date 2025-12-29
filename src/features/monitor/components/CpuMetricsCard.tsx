@@ -9,6 +9,8 @@ interface CpuMetricsCardProps {
   showPerCore?: boolean;
   /** コンパクトモード */
   compact?: boolean;
+  /** CPUモデル名を表示するか */
+  showCpuName?: boolean;
 }
 
 /**
@@ -18,6 +20,7 @@ export function CpuMetricsCard({
   metrics,
   showPerCore = false,
   compact = false,
+  showCpuName = true,
 }: CpuMetricsCardProps) {
   const severity = getCpuSeverity(metrics.usagePercent);
 
@@ -51,6 +54,23 @@ export function CpuMetricsCard({
           {metrics.coreCount}コア
         </span>
       </div>
+
+      {/* CPU名表示 */}
+      {showCpuName && !compact && (
+        <div
+          style={{
+            fontSize: '12px',
+            color: 'var(--text-muted, #9ca3af)',
+            marginTop: '4px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={metrics.cpuName}
+        >
+          {metrics.cpuName}
+        </div>
+      )}
 
       {/* メイン使用率バー */}
       <div style={{ marginTop: '8px', ...barStyle(metrics.usagePercent) }}>

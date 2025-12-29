@@ -5,6 +5,7 @@ mod tests {
         get_cpu_usage,
         get_memory_info,
         get_cpu_core_count,
+        get_cpu_name,
         get_per_core_cpu_usage,
         get_available_memory,
     };
@@ -34,6 +35,26 @@ mod tests {
         assert!(result.is_ok(), "get_cpu_core_count should succeed");
         let count = result.unwrap();
         assert!(count > 0, "Should have at least 1 CPU core");
+    }
+
+    #[test]
+    fn test_cpu_name_returns_valid_string() {
+        let result = get_cpu_name();
+        assert!(result.is_ok(), "get_cpu_name should succeed");
+        let name = result.unwrap();
+        // CPU名は空文字列ではない
+        assert!(!name.is_empty(), "CPU name should not be empty");
+        // 一般的なCPUブランドまたは "Unknown CPU" が含まれているはず
+        let is_valid = name.contains("Intel")
+            || name.contains("AMD")
+            || name.contains("ARM")
+            || name.contains("Apple")
+            || name.contains("Unknown CPU");
+        assert!(
+            is_valid,
+            "CPU name should contain a known brand or 'Unknown CPU', got: {}",
+            name
+        );
     }
 
     #[test]
@@ -70,6 +91,7 @@ mod tests {
             let _ = get_cpu_usage();
             let _ = get_memory_info();
             let _ = get_cpu_core_count();
+            let _ = get_cpu_name();
             let _ = get_per_core_cpu_usage();
             let _ = get_available_memory();
         }
@@ -129,6 +151,15 @@ mod tests {
         assert_eq!(count1, count2, "CPUコア数は不変");
         assert!(count1 > 0, "CPUコア数は1以上");
         assert!(count1 <= 256, "CPUコア数が異常に多い（256以上）");
+    }
+
+    #[test]
+    fn test_cpu_name_is_consistent() {
+        // CPU名は変わらないはず
+        let name1 = get_cpu_name().unwrap();
+        let name2 = get_cpu_name().unwrap();
+
+        assert_eq!(name1, name2, "CPU名は不変");
     }
 
     #[test]
@@ -211,6 +242,7 @@ mod tests {
                         let _ = get_cpu_usage();
                         let _ = get_memory_info();
                         let _ = get_cpu_core_count();
+                        let _ = get_cpu_name();
                     }
                 })
             })
